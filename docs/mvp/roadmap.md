@@ -17,6 +17,7 @@
 - 단순 lexical retriever를 구현한다.
 - `agent.md` 기준으로 MVP agent harness를 정의한다.
 - 상위 근거 chunk를 반환하는 최소 `ask` 스크립트를 추가한다.
+- 평가 질문셋 기준 Recall@k를 계산하는 `evaluate` 스크립트를 추가한다.
 
 ## Phase 2: 평가 기준선 구축
 
