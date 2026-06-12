@@ -17,14 +17,18 @@
 - 목표: TBD
 - 주요 기능: TBD
 - 기술 스택: TBD
+- 초기 협업 도구: GitHub Actions, CodeRabbit, pre-commit, Ruff, pytest
 
 ## Getting Started
 
 프로젝트 스택이 정해지면 아래 내용을 업데이트합니다.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/ASAC-data-engineer-2-team5/llmenhance.git
 cd llmenhance
+python -m pip install -r requirements-dev.txt
+pre-commit install
+pytest
 ```
 
 ## Branch Strategy

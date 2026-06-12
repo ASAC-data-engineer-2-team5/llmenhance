@@ -37,6 +37,23 @@ Pull Request에는 아래 내용을 포함합니다.
 - 스크린샷 또는 실행 결과, UI 변경이 있는 경우
 - 리뷰어가 집중해서 봐야 할 부분
 
+## Local Checks
+
+커밋 전 아래 명령을 실행해 기본 품질 검사를 맞춥니다.
+
+```bash
+ruff check .
+ruff format --check .
+pytest
+```
+
+처음 클론한 팀원은 한 번만 pre-commit 훅을 설치합니다.
+
+```bash
+python -m pip install -r requirements-dev.txt
+pre-commit install
+```
+
 ## Before Merge
 
 - 충돌이 없는지 확인합니다.
