@@ -33,6 +33,7 @@ class PolicyRetriever:
 
     def __init__(self, chunks: list[PolicyChunk]) -> None:
         self._chunks = tuple(chunks)
+        _validate_unique_chunk_ids(self._chunks)
         self._indexed_chunks = {
             chunk.chunk_id: _token_counts(f"{chunk.title} {chunk.section} {chunk.content}")
             for chunk in self._chunks
@@ -74,3 +75,10 @@ def _token_counts(text: str) -> Counter[str]:
 
 def _term_frequency(term: str, chunk_terms: Counter[str]) -> int:
     return sum(count for token, count in chunk_terms.items() if term in token)
+
+
+def _validate_unique_chunk_ids(chunks: tuple[PolicyChunk, ...]) -> None:
+    chunk_ids = [chunk.chunk_id for chunk in chunks]
+    duplicates = sorted(chunk_id for chunk_id, count in Counter(chunk_ids).items() if count > 1)
+    if duplicates:
+        raise ValueError(f"Duplicate policy chunk ids: {', '.join(duplicates)}")

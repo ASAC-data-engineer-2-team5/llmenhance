@@ -1,3 +1,5 @@
+import pytest
+
 from llmenhance.policy_retriever import PolicyChunk, PolicyRetriever
 
 
@@ -54,3 +56,23 @@ def test_search_returns_deterministic_results_for_equal_scores() -> None:
     results = retriever.search("사전 신청")
 
     assert [result.chunk.chunk_id for result in results] == ["a-policy", "b-policy"]
+
+
+def test_retriever_rejects_duplicate_chunk_ids() -> None:
+    chunks = [
+        PolicyChunk(
+            chunk_id="duplicate-policy",
+            title="연차 신청",
+            section="복무",
+            content="연차 신청은 사전에 등록한다.",
+        ),
+        PolicyChunk(
+            chunk_id="duplicate-policy",
+            title="경비 정산",
+            section="재무",
+            content="경비 정산은 증빙을 첨부한다.",
+        ),
+    ]
+
+    with pytest.raises(ValueError, match="duplicate-policy"):
+        PolicyRetriever(chunks)
