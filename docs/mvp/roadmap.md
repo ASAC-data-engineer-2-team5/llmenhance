@@ -15,6 +15,7 @@
 - 정규화된 문서를 JSON으로 export한다.
 - chunk 결과를 JSONL로 export한다.
 - 단순 lexical retriever를 구현한다.
+- `agent.md` 기준으로 MVP agent harness를 정의한다.
 - 상위 근거 chunk를 반환하는 최소 `ask` 스크립트를 추가한다.
 
 ## Phase 2: 평가 기준선 구축
@@ -51,6 +52,7 @@
 - local LLM, paid LLM, retrieval-only baseline을 비교한다.
 - reranker 실험을 추가한다.
 - prompt template과 guardrail을 추가한다.
+- `agent.md` harness 기준으로 답변 품질, 출처 표시, 확인 불가 처리를 비교한다.
 - 검색 및 citation 품질을 측정할 수 있게 된 뒤 MCP 또는 skill-like tool을 붙인다.
 
 ## 추천 팀 역할 분담
@@ -59,4 +61,3 @@
 - ingestion 담당: loader, normalizer, chunker, metadata 관리
 - 검색/모델 담당: lexical retrieval, embedding, vector DB, reranker 실험
 - 앱/DevOps 담당: CLI, API, UI, Docker, CI, 문서화
-
