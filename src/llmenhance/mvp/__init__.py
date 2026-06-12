@@ -1,1 +1,1 @@
-"""MVP command entrypoints."""
+"""MVP 실행 진입점."""

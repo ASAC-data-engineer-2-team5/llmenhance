@@ -1,1 +1,1 @@
-"""Source-specific document loaders."""
+"""데이터 소스별 문서 loader."""

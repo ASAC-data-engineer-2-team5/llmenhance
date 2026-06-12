@@ -1,5 +1,5 @@
-{"id":"q001","question":"재택근무 중 병원 진료로 2시간 자리를 비우면 어떻게 처리해야 하나요?","expected_documents":["HR-REMOTE-001","HR-LEAVE-001","HR-WORK-001"],"note":"multi-document retrieval: remote work, leave, attendance"}
-{"id":"q002","question":"퇴근 기록을 깜빡했는데 며칠 안에 정정해야 하나요?","expected_documents":["HR-WORK-001"],"note":"attendance correction"}
-{"id":"q003","question":"카페에서 회사 노트북으로 고객 데이터를 확인해도 되나요?","expected_documents":["HR-REMOTE-001"],"note":"remote work security and location rule"}
-{"id":"q004","question":"3일 연속 연차를 쓰려면 언제까지 신청해야 하나요?","expected_documents":["HR-LEAVE-001"],"note":"leave approval lead time"}
-{"id":"q005","question":"재택근무 중 장애 대응으로 밤 10시 이후까지 일하면 초과근무로 인정되나요?","expected_documents":["HR-REMOTE-001"],"note":"overtime exception"}
+{"id":"q001","question":"재택근무 중 병원 진료로 2시간 자리를 비우면 어떻게 처리해야 하나요?","expected_documents":["HR-REMOTE-001","HR-LEAVE-001","HR-WORK-001"],"note":"여러 문서 검색: 재택근무, 휴가, 근태 규정 함께 필요"}
+{"id":"q002","question":"퇴근 기록을 깜빡했는데 며칠 안에 정정해야 하나요?","expected_documents":["HR-WORK-001"],"note":"근태 정정 기준 확인"}
+{"id":"q003","question":"카페에서 회사 노트북으로 고객 데이터를 확인해도 되나요?","expected_documents":["HR-REMOTE-001"],"note":"재택근무 장소 및 보안 기준 확인"}
+{"id":"q004","question":"3일 연속 연차를 쓰려면 언제까지 신청해야 하나요?","expected_documents":["HR-LEAVE-001"],"note":"휴가 사전 신청 기한 확인"}
+{"id":"q005","question":"재택근무 중 장애 대응으로 밤 10시 이후까지 일하면 초과근무로 인정되나요?","expected_documents":["HR-REMOTE-001"],"note":"초과근무 예외 승인 기준 확인"}

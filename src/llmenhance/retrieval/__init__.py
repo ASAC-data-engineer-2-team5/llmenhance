@@ -1,1 +1,1 @@
-"""Retrieval package for MVP and later RAG experiments."""
+"""MVP 및 이후 RAG 실험을 위한 retrieval 패키지."""

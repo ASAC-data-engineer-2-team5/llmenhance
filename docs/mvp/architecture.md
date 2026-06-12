@@ -1,9 +1,9 @@
-# MVP Architecture
+# MVP 아키텍처
 
-## High-Level Flow
+## 전체 흐름
 
 ```text
-Markdown policy files
+Markdown 사내 규정 문서
         |
         v
 MarkdownLoader
@@ -21,14 +21,24 @@ Chunk JSONL
 LexicalRetriever
         |
         v
-Evidence for answer generation
+답변 생성용 근거
 ```
 
-## Source Layers
+## 데이터 소스 계층
 
-The MVP starts with Markdown files because they are easy for the team to create, review, and version-control. Real companies may store policies as PDF, DOCX, HWP/HWPX, Confluence pages, Notion pages, SharePoint pages, or static HTML wiki pages.
+MVP에서는 Markdown 파일로 시작한다. Markdown은 팀원이 작성, 검토, 버전관리하기 쉽기 때문이다.
 
-To avoid rebuilding the RAG pipeline later, each source format should implement a loader with the same output contract:
+하지만 실제 회사의 사내 규정은 다음과 같은 형태로 존재할 수 있다.
+
+- PDF
+- DOCX
+- HWP/HWPX
+- Confluence 페이지
+- Notion 페이지
+- SharePoint 페이지
+- 정적 HTML 사내 위키
+
+따라서 MVP 단계부터 RAG 본체가 특정 파일 포맷에 종속되지 않도록 구성한다. 각 소스 포맷은 서로 다른 loader를 가지되, loader의 출력 계약은 동일해야 한다.
 
 ```python
 document = loader.load(source)
@@ -36,7 +46,7 @@ chunks = chunker.split(document)
 results = retriever.search(question, chunks)
 ```
 
-## Proposed Package Boundaries
+## 패키지 경계
 
 ```text
 src/llmenhance/
@@ -55,9 +65,9 @@ src/llmenhance/
     ask.py
 ```
 
-## Common Document Model
+## 공통 문서 모델
 
-The MVP should use a format-neutral model similar to:
+MVP에서는 포맷에 독립적인 문서 모델을 사용한다. 예시는 다음과 같다.
 
 ```json
 {
@@ -72,19 +82,19 @@ The MVP should use a format-neutral model similar to:
     {
       "section_id": "HR-WORK-001-article-006",
       "heading": "제6조 세부 규정",
-      "text": "..."
+      "text": "표준근무시간은 09:00부터 18:00까지이며..."
     }
   ]
 }
 ```
 
-Future loaders may fill `page`, `source_url`, `last_modified_at`, or `access_level`, but the MVP should keep the required fields small.
+향후 loader는 필요에 따라 `page`, `source_url`, `last_modified_at`, `access_level` 같은 필드를 추가할 수 있다. 다만 MVP에서는 필수 필드를 작게 유지한다.
 
-## Chunking Strategy
+## Chunking 전략
 
-Policy documents should be chunked by article or heading first. If a section is too long, the chunker may split it into smaller windows while preserving metadata.
+사내 규정 문서는 가능하면 조항 또는 제목 단위로 먼저 나눈다. 하나의 조항이 너무 길면 더 작은 window로 나누되, 원래 문서와 제목 메타데이터는 유지한다.
 
-Recommended MVP metadata:
+MVP 필수 메타데이터는 다음과 같다.
 
 - `chunk_id`
 - `document_id`
@@ -94,7 +104,7 @@ Recommended MVP metadata:
 - `source_format`
 - `text`
 
-Optional future metadata:
+향후 확장 메타데이터는 다음과 같다.
 
 - `page`
 - `article_number`
@@ -103,22 +113,22 @@ Optional future metadata:
 - `effective_date`
 - `access_level`
 
-## Retrieval Strategy
+## 검색 전략
 
-The MVP should start with lexical retrieval because it is simple, deterministic, and useful as a baseline.
+MVP에서는 lexical retrieval부터 시작한다. lexical retrieval은 단순하고 결정적이며, 이후 embedding 검색이나 hybrid 검색의 기준선으로 쓰기 좋다.
 
-Later stages can compare:
+이후 단계에서는 다음 실험을 비교할 수 있다.
 
 - lexical retrieval only
 - embedding retrieval only
 - hybrid retrieval
-- reranker-enhanced retrieval
-- local LLM answer generation
-- paid LLM answer generation
+- reranker 적용 retrieval
+- local LLM 답변 생성
+- paid LLM 답변 생성
 
-## Extension Points
+## 확장 지점
 
-The following loaders should be added after the MVP proves the normalized pipeline:
+MVP에서 정규화 pipeline이 검증된 뒤 다음 loader를 추가한다.
 
 - `PdfLoader`
 - `DocxLoader`
