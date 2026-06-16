@@ -1,0 +1,5 @@
+httpx
+pytest
+python-dotenv
+qdrant-client
+pyyaml
