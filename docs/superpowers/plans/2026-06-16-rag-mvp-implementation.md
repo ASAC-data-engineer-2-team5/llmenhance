@@ -33,7 +33,7 @@ Wave 4: Docs and cleanup
 | Subagent B | `app/metadata_store.py`, `tests/test_metadata_store.py` |
 | Subagent C | `app/embeddings.py`, `app/qwen_client.py`, `tests/test_ollama_clients.py` |
 | Subagent D | `app/vector_store.py`, `tests/test_vector_store.py` |
-| Subagent E | `scripts/ingest_md.py`, `datasets/docs/sample.md`, `tests/test_ingest_md.py` |
+| Subagent E | `scripts/ingest_md.py`, `datasets/docs/hr/leave-policy.md`, `tests/test_ingest_md.py` |
 | Subagent F | `app/rag_pipeline.py`, `scripts/ask_rag.py`, `tests/test_rag_pipeline.py` |
 | Coordinator | `docs/RAG_MVP_RUNBOOK.md`, final integration fixes |
 
@@ -245,36 +245,36 @@ Expected: all tests pass.
 - Create: `app/metadata_store.py`
 - Create: `tests/test_metadata_store.py`
 
-- [ ] **Step 1: Implement schema creation**
+- [x] **Step 1: Implement schema creation**
 
 Create tables:
 
 ```sql
-documents(id, source_path, title, doc_type, team, created_at)
+documents(id, source_path, title, doc_type, department, category, security_level, created_at)
 chunks(id, document_id, chunk_index, text, token_count)
-chunk_tags(chunk_id, tag)
 ```
 
-- [ ] **Step 2: Implement insert functions**
+- [x] **Step 2: Implement insert functions**
 
 Required functions:
 
 ```python
 def init_db(sqlite_path: str) -> None: ...
 def upsert_document(conn, document: dict) -> None: ...
-def upsert_chunk(conn, chunk: dict, tags: list[str]) -> None: ...
+def upsert_chunk(conn, chunk: dict) -> None: ...
 ```
 
-- [ ] **Step 3: Implement hard filter query**
+- [x] **Step 3: Implement hard filter query**
 
 Function signature:
 
 ```python
 def find_candidate_chunk_ids(
     conn,
-    tag: str | None = None,
     doc_type: str | None = None,
-    team: str | None = None,
+    department: str | None = None,
+    category: str | None = None,
+    security_level: str | None = None,
     source_path: str | None = None,
 ) -> list[str]:
     ...
@@ -282,21 +282,22 @@ def find_candidate_chunk_ids(
 
 Use parameterized SQL only. Do not build SQL by string concatenating user values.
 
-- [ ] **Step 4: Add tests**
+- [x] **Step 4: Add tests**
 
 Tests must use a temporary SQLite file and verify:
 
 ```text
 schema is created
-document/chunk/tag insertion works
-tag filter works
+document/chunk insertion works
 doc_type filter works
-team filter works
+department filter works
+category filter works
+security_level filter works
 source_path filter works
 combined filters work
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -463,37 +464,37 @@ These tasks must wait until Wave 1 modules are complete.
 
 **Files:**
 - Create: `scripts/ingest_md.py`
-- Create: `datasets/docs/sample.md`
+- Create: `datasets/docs/hr/leave-policy.md`
 - Create: `tests/test_ingest_md.py`
 
 - [ ] **Step 1: Create sample markdown**
 
-`datasets/docs/sample.md` must include simple front matter:
+`datasets/docs/hr/leave-policy.md` must include simple front matter:
 
 ```yaml
 ---
-title: RAG MVP Sample
-doc_type: report
-team: rag
-tags:
-  - benchmark
-  - rag
+title: 연차 및 휴가 규정
+doc_type: policy
+department: hr
+category: leave
+security_level: internal
 ---
 ```
 
-The body must describe why RAG is used in this project.
+The body must describe employee leave request rules, including when employees should submit annual leave requests and where exceptions are handled.
 
 - [ ] **Step 2: Implement metadata parsing**
 
-If front matter exists, parse `title`, `doc_type`, `team`, and `tags`.
+If front matter exists, parse `title`, `doc_type`, `department`, `category`, and `security_level`.
 
 If front matter does not exist, use:
 
 ```text
 title = filename
 doc_type = note
-team = general
-tags = []
+department = general
+category = general
+security_level = internal
 ```
 
 - [ ] **Step 3: Implement ingestion command**
@@ -511,7 +512,7 @@ read .md files
 chunk each file
 embed each chunk
 initialize SQLite
-upsert document/chunk/tag metadata
+upsert document/chunk metadata
 ensure Qdrant collection using embedding vector size
 upsert Qdrant vectors
 print final counts
@@ -567,9 +568,10 @@ Function signature:
 ```python
 def answer_question(
     question: str,
-    tag: str | None,
     doc_type: str | None,
-    team: str | None,
+    department: str | None,
+    category: str | None,
+    security_level: str | None,
     source_path: str | None,
     top_k: int,
 ) -> dict:
@@ -592,7 +594,7 @@ Return shape:
 Command:
 
 ```powershell
-docker compose run --rm rag-api python scripts/ask_rag.py "RAG를 왜 쓰는 거야?" --tag benchmark --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --department hr --category leave --top-k 5
 ```
 
 Output format:
@@ -602,7 +604,7 @@ Answer:
 ...
 
 Sources:
-- datasets/docs/sample.md#chunk_001
+- datasets/docs/hr/leave-policy.md#chunk_001
 ```
 
 - [ ] **Step 4: Verify**
@@ -610,7 +612,7 @@ Sources:
 Run:
 
 ```powershell
-docker compose run --rm rag-api python scripts/ask_rag.py "이 문서에서 RAG를 쓰는 이유는?" --tag benchmark --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --department hr --category leave --top-k 5
 ```
 
 Expected:
@@ -668,7 +670,7 @@ docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs
 Run:
 
 ```powershell
-docker compose run --rm rag-api python scripts/ask_rag.py "이 프로젝트에서 RAG를 쓰는 이유는?" --tag benchmark --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --department hr --category leave --top-k 5
 ```
 
 - [ ] **Step 5: Run tests**
@@ -721,7 +723,7 @@ docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs
 Include:
 
 ```powershell
-docker compose run --rm rag-api python scripts/ask_rag.py "이 프로젝트에서 RAG를 쓰는 이유는?" --tag benchmark --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --department hr --category leave --top-k 5
 ```
 
 - [ ] **Step 5: Document teardown**
@@ -762,7 +764,7 @@ The final implementation must pass:
 ```powershell
 docker compose up -d
 docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs
-docker compose run --rm rag-api python scripts/ask_rag.py "이 프로젝트에서 RAG를 쓰는 이유는?" --tag benchmark --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --department hr --category leave --top-k 5
 docker compose run --rm rag-api pytest -v
 ```
 

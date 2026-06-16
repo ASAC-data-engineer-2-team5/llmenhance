@@ -83,7 +83,8 @@ llmenhance/
 │  └─ ask_rag.py
 ├─ datasets/
 │  └─ docs/
-│     └─ sample.md
+│     └─ hr/
+│        └─ leave-policy.md
 ├─ storage/
 │  └─ metadata.sqlite
 ├─ reports/
@@ -131,10 +132,11 @@ SQLite는 hard filtering을 담당한다.
 예시:
 
 ```text
---tag benchmark
---doc-type report
---team rag
---source sample.md
+--department hr
+--category leave
+--doc-type policy
+--security-level internal
+--source-path datasets/docs/hr/leave-policy.md
 ```
 
 MVP에서는 LLM이 자연어를 SQL로 바꾸지 않는다. 사용자가 명시적인 CLI option으로 filter를 전달한다.
@@ -155,7 +157,9 @@ CREATE TABLE IF NOT EXISTS documents (
   source_path TEXT NOT NULL,
   title TEXT NOT NULL,
   doc_type TEXT NOT NULL,
-  team TEXT NOT NULL,
+  department TEXT NOT NULL,
+  category TEXT NOT NULL,
+  security_level TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 
@@ -168,12 +172,6 @@ CREATE TABLE IF NOT EXISTS chunks (
   FOREIGN KEY (document_id) REFERENCES documents(id)
 );
 
-CREATE TABLE IF NOT EXISTS chunk_tags (
-  chunk_id TEXT NOT NULL,
-  tag TEXT NOT NULL,
-  PRIMARY KEY (chunk_id, tag),
-  FOREIGN KEY (chunk_id) REFERENCES chunks(id)
-);
 ```
 
 ## Qdrant Responsibility
@@ -189,8 +187,8 @@ Qdrant는 semantic search를 담당한다.
   "payload": {
     "chunk_id": "chunk_001",
     "document_id": "doc_001",
-    "source_path": "datasets/docs/sample.md",
-    "title": "Sample RAG Document"
+    "source_path": "datasets/docs/hr/leave-policy.md",
+    "title": "연차 및 휴가 규정"
   }
 }
 ```
@@ -213,7 +211,7 @@ docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs
 3. front matter가 없으면 기본 metadata를 부여한다.
 4. Markdown 본문을 chunk_size와 chunk_overlap 기준으로 나눈다.
 5. 각 chunk를 embedding한다.
-6. SQLite에 document/chunk/tag metadata를 저장한다.
+6. SQLite에 document/chunk metadata를 저장한다.
 7. Qdrant에 vector와 payload를 저장한다.
 8. 처리 결과를 출력한다.
 ```
@@ -232,13 +230,13 @@ SQLite rows inserted: 8
 명령:
 
 ```powershell
-docker compose run --rm rag-api python scripts/ask_rag.py "RAG를 왜 쓰는 거야?" --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --top-k 5
 ```
 
 hard filter 포함:
 
 ```powershell
-docker compose run --rm rag-api python scripts/ask_rag.py "RAG를 왜 쓰는 거야?" --tag benchmark --doc-type report --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --department hr --category leave --doc-type policy --security-level internal --top-k 5
 ```
 
 처리 순서:
@@ -385,9 +383,9 @@ tests/test_metadata_store.py
 Acceptance criteria:
 
 ```text
-documents, chunks, chunk_tags 테이블이 생성된다.
+documents, chunks 테이블이 생성된다.
 document와 chunk를 저장할 수 있다.
-tag/doc_type/team/source_path로 chunk 후보를 조회할 수 있다.
+doc_type/department/category/security_level/source_path로 chunk 후보를 조회할 수 있다.
 ```
 
 ### Task 5: Embedding Client
@@ -428,7 +426,7 @@ Create:
 
 ```text
 scripts/ingest_md.py
-datasets/docs/sample.md
+datasets/docs/hr/leave-policy.md
 ```
 
 Acceptance criteria:
@@ -469,8 +467,8 @@ Answer:
 ...
 
 Sources:
-- datasets/docs/sample.md#chunk_001
-- datasets/docs/sample.md#chunk_002
+- datasets/docs/hr/leave-policy.md#chunk_001
+- datasets/docs/hr/leave-policy.md#chunk_002
 ```
 
 ### Task 9: MVP Verification Document
