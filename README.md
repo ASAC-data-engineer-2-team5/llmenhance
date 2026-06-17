@@ -47,6 +47,17 @@ Qwen output:
 
 Qwen is not used as a planning assistant, debugging assistant, or autonomous agent in the MVP.
 
+## Ollama Client Behavior
+
+The current Ollama client layer provides:
+
+```text
+- embed_text(): calls /api/embed first, then falls back to /api/embeddings
+- chat_qwen(): calls /api/chat with stream=false and think=false
+- chat_qwen(): keeps system and user messages separate
+- chat_qwen(): appends a prompt injection guard to the system message
+```
+
 ## Infrastructure
 
 Task 0 provides the base infrastructure:
@@ -88,15 +99,18 @@ Implemented:
 - healthcheck
 - Markdown chunking with overlap
 - SQLite metadata store for internal document hard filters
+- Ollama embedding client
+- Qwen chat client with prompt injection guard
+- Qdrant vector store with candidate chunk filtering
+- Markdown ingestion script
+- Sample HR leave policy document
+- RAG query pipeline and CLI
 ```
 
 Next:
 
 ```text
-- Ollama embedding client
-- Qdrant vector store
-- Markdown ingestion script
-- RAG query script
+- End-to-end verification runbook
 ```
 
 ## Document Metadata Direction

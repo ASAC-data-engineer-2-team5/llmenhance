@@ -17,6 +17,7 @@ The product is not a generic RAG demo. The target user is an employee asking pra
 4. Every answer must include source references.
 5. Superpowers, Codex, or other agent skills are development aids only; they are not part of the Qwen runtime.
 6. The MVP must keep the on-premise/local story intact.
+7. Qwen requests must keep system instructions separate from user/context data and include a prompt injection guard.
 ```
 
 ## MVP Architecture
@@ -84,7 +85,9 @@ security_level: internal
 3. Use parameterized SQL for all SQLite filters.
 4. Do not add natural-language-to-SQL in the MVP.
 5. Do not put Ollama/Qwen inside Docker for the MVP; call host Ollama through host.docker.internal:11434.
-6. Do not commit .env, cache directories, local DB files, or generated vector data.
+6. Do not concatenate system prompts, retrieved context, and user questions into one undifferentiated prompt string.
+7. Treat retrieved document chunks and user input as untrusted data in the Qwen system message.
+8. Do not commit .env, cache directories, local DB files, or generated vector data.
 ```
 
 ## Subagent Work Rules

@@ -33,7 +33,7 @@ Wave 4: Docs and cleanup
 | Subagent B | `app/metadata_store.py`, `tests/test_metadata_store.py` |
 | Subagent C | `app/embeddings.py`, `app/qwen_client.py`, `tests/test_ollama_clients.py` |
 | Subagent D | `app/vector_store.py`, `tests/test_vector_store.py` |
-| Subagent E | `scripts/ingest_md.py`, `datasets/docs/hr/leave-policy.md`, `tests/test_ingest_md.py` |
+| Coordinator | `scripts/ingest_md.py`, `datasets/docs/hr/leave-policy.md`, `tests/test_ingest_md.py` |
 | Subagent F | `app/rag_pipeline.py`, `scripts/ask_rag.py`, `tests/test_rag_pipeline.py` |
 | Coordinator | `docs/RAG_MVP_RUNBOOK.md`, final integration fixes |
 
@@ -316,7 +316,7 @@ Expected: all tests pass.
 - Create: `app/qwen_client.py`
 - Create: `tests/test_ollama_clients.py`
 
-- [ ] **Step 1: Implement embedding client**
+- [x] **Step 1: Implement embedding client**
 
 Function signature:
 
@@ -327,7 +327,7 @@ def embed_text(base_url: str, model: str, text: str) -> list[float]:
 
 Use Ollama embedding endpoint. If `/api/embed` fails because the local Ollama version differs, try `/api/embeddings`.
 
-- [ ] **Step 2: Implement Qwen chat client**
+- [x] **Step 2: Implement Qwen chat client**
 
 Function signature:
 
@@ -353,7 +353,9 @@ Request must include:
 }
 ```
 
-- [ ] **Step 3: Add mocked tests**
+The chat request must keep `system_prompt` and `user_prompt` as separate `messages` roles. The system message must include a prompt injection guard that tells Qwen to treat retrieved context and user-provided content as untrusted data, not instructions.
+
+- [x] **Step 3: Add mocked tests**
 
 Mock HTTP calls and verify:
 
@@ -363,9 +365,12 @@ embedding fallback is attempted
 qwen chat sends think=false
 qwen chat returns message content
 errors include endpoint and model name
+qwen chat keeps system and user messages separate
+prompt injection guard is included in the system message
+malicious user text is not merged into the system message
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -383,7 +388,7 @@ Expected: all tests pass.
 - Create: `app/vector_store.py`
 - Create: `tests/test_vector_store.py`
 
-- [ ] **Step 1: Implement collection setup**
+- [x] **Step 1: Implement collection setup**
 
 Function signature:
 
@@ -392,7 +397,7 @@ def ensure_collection(qdrant_url: str, collection_name: str, vector_size: int) -
     ...
 ```
 
-- [ ] **Step 2: Implement vector upsert**
+- [x] **Step 2: Implement vector upsert**
 
 Function signature:
 
@@ -416,7 +421,7 @@ payload.source_path
 payload.title
 ```
 
-- [ ] **Step 3: Implement search**
+- [x] **Step 3: Implement search**
 
 Function signature:
 
@@ -433,7 +438,7 @@ def search_chunks(
 
 If `candidate_chunk_ids` is provided, search only those chunk IDs.
 
-- [ ] **Step 4: Add tests**
+- [x] **Step 4: Add tests**
 
 Mock Qdrant client and verify:
 
@@ -444,7 +449,7 @@ search passes top_k
 candidate_chunk_ids creates a filter
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -460,14 +465,16 @@ These tasks must wait until Wave 1 modules are complete.
 
 ### Task 5: Markdown Ingestion Script
 
-**Run as:** Subagent E.
+**Run as:** Coordinator directly. Do not delegate to Subagent E.
+
+**Reason:** Task 5 is the first integration step across chunking, SQLite metadata, Ollama embeddings, and Qdrant vector storage. Keep it serial and controller-owned so cross-module contracts can be adjusted carefully.
 
 **Files:**
 - Create: `scripts/ingest_md.py`
 - Create: `datasets/docs/hr/leave-policy.md`
 - Create: `tests/test_ingest_md.py`
 
-- [ ] **Step 1: Create sample markdown**
+- [x] **Step 1: Create sample markdown**
 
 `datasets/docs/hr/leave-policy.md` must include simple front matter:
 
@@ -483,7 +490,7 @@ security_level: internal
 
 The body must describe employee leave request rules, including when employees should submit annual leave requests and where exceptions are handled.
 
-- [ ] **Step 2: Implement metadata parsing**
+- [x] **Step 2: Implement metadata parsing**
 
 If front matter exists, parse `title`, `doc_type`, `department`, `category`, and `security_level`.
 
@@ -497,7 +504,7 @@ category = general
 security_level = internal
 ```
 
-- [ ] **Step 3: Implement ingestion command**
+- [x] **Step 3: Implement ingestion command**
 
 Command:
 
@@ -518,7 +525,36 @@ upsert Qdrant vectors
 print final counts
 ```
 
-- [ ] **Step 4: Verify**
+Use this ID contract:
+
+```text
+document_id: stable logical id derived from source_path
+chunk_id: stable logical id derived from document_id and chunk_index
+qdrant point id: UUID string derived deterministically from chunk_id
+payload.chunk_id: the logical chunk_id used by SQLite hard filters
+```
+
+Do not use arbitrary strings such as `chunk-hr-leave-0` as Qdrant point ids. Qdrant accepts unsigned integers or UUID strings only. SQLite and Qdrant must still connect through `payload.chunk_id`, not through the Qdrant point id.
+
+- [x] **Step 4: Add tests**
+
+Tests must mock network/database side effects where possible and verify:
+
+```text
+.md files are discovered recursively
+front matter metadata is parsed
+missing front matter uses default metadata
+body text excludes front matter before chunking
+chunk_text is called with configured chunk_size and chunk_overlap
+embed_text is called once per chunk
+SQLite init/upsert functions are called
+Qdrant ensure_collection uses embedding vector size
+Qdrant upsert receives UUID point ids
+Qdrant payload contains chunk_id, document_id, source_path, and title
+final counts are printed
+```
+
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -537,14 +573,16 @@ SQLite rows inserted:
 
 ### Task 6: RAG Query Pipeline
 
-**Run as:** Subagent F.
+**Run as:** Coordinator directly.
+
+**Reason:** Task 6 was implemented directly after Task 5 because it connects SQLite filters, Qdrant retrieval, Ollama embeddings, and Qwen answer generation in one integration path.
 
 **Files:**
 - Create: `app/rag_pipeline.py`
 - Create: `scripts/ask_rag.py`
 - Create: `tests/test_rag_pipeline.py`
 
-- [ ] **Step 1: Implement RAG prompt builder**
+- [x] **Step 1: Implement RAG prompt builder**
 
 Prompt must be:
 
@@ -561,7 +599,7 @@ context에 없는 내용은 "문서에서 확인되지 않습니다"라고 답�
 {question}
 ```
 
-- [ ] **Step 2: Implement pipeline**
+- [x] **Step 2: Implement pipeline**
 
 Function signature:
 
@@ -574,6 +612,8 @@ def answer_question(
     security_level: str | None,
     source_path: str | None,
     top_k: int,
+    *,
+    settings: Settings | None = None,
 ) -> dict:
     ...
 ```
@@ -589,7 +629,7 @@ Return shape:
 }
 ```
 
-- [ ] **Step 3: Implement CLI**
+- [x] **Step 3: Implement CLI**
 
 Command:
 
@@ -604,10 +644,10 @@ Answer:
 ...
 
 Sources:
-- datasets/docs/hr/leave-policy.md#chunk_001
+- datasets/docs/hr/leave-policy.md#doc:datasets/docs/hr/leave-policy.md:chunk:0000 (score: 0.70089567)
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -621,6 +661,16 @@ Expected:
 Answer section exists
 Sources section exists
 At least one source is printed
+```
+
+Verified output:
+
+```text
+Answer:
+연차 신청은 사용 예정일 최소 3영업일 전까지 해야 합니다.
+
+Sources:
+- datasets/docs/hr/leave-policy.md#doc:datasets/docs/hr/leave-policy.md:chunk:0000 (score: 0.70089567)
 ```
 
 ## Wave 3: End-to-End Verification
@@ -742,12 +792,13 @@ Use subagents as follows:
 1. Run Task 0 serially.
 2. After Task 0 passes, dispatch Tasks 1, 2, 3, and 4 as separate subagents.
 3. Review and merge Wave 1.
-4. Dispatch Task 5 and Task 6 as separate subagents only after Wave 1 passes.
-5. Run Task 7 in one integration pass.
-6. Run Task 8 after the final command sequence works.
+4. Run Task 5 directly in the coordinator session because it integrates Tasks 1-4.
+5. Dispatch Task 6 only after Task 5 passes, or run it directly if integration issues are expected.
+6. Run Task 7 in one integration pass.
+7. Run Task 8 after the final command sequence works.
 ```
 
-Do not dispatch Tasks 5 or 6 before Tasks 1-4 are complete.
+Do not dispatch Task 6 before Tasks 1-5 are complete.
 
 ## Review Gates
 
@@ -778,4 +829,5 @@ docker compose run --rm rag-api pytest -v
 5. docker compose up -d must start the shared infrastructure.
 6. Docker must call host Ollama through host.docker.internal:11434.
 7. Every answer must print sources.
+8. Qwen chat requests must keep system and user/context data separated and include the prompt injection guard.
 ```
