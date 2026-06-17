@@ -235,7 +235,7 @@ def test_repository_sample_docs_cover_core_policy_topics():
     docs_root = Path("datasets/docs")
     markdown_files = ingest.discover_markdown_files(docs_root)
 
-    assert len(markdown_files) == 9
+    assert len(markdown_files) == 13
 
     parsed_docs = [ingest.parse_markdown_file(path) for path in markdown_files]
     metadata_by_category = {metadata["category"]: metadata for metadata, _ in parsed_docs}
@@ -246,6 +246,10 @@ def test_repository_sample_docs_cover_core_policy_topics():
         "onboarding",
         "expense",
         "travel",
+        "corporate-card",
+        "procurement",
+        "vendor-payment",
+        "meal-entertainment",
         "privacy",
         "device-security",
         "document-retention",
@@ -259,3 +263,30 @@ def test_repository_sample_docs_cover_core_policy_topics():
     }
     assert all(metadata["security_level"] == "internal" for metadata, _ in parsed_docs)
     assert all(len(body.split()) >= 120 for _, body in parsed_docs)
+
+
+def test_repository_finance_docs_are_dense_enough_for_retrieval_tests():
+    ingest = ingest_module()
+    docs_root = Path("datasets/docs/finance")
+    markdown_files = ingest.discover_markdown_files(docs_root)
+
+    assert len(markdown_files) == 6
+
+    parsed_docs = [ingest.parse_markdown_file(path) for path in markdown_files]
+    metadata_by_category = {metadata["category"]: metadata for metadata, _ in parsed_docs}
+
+    assert set(metadata_by_category) == {
+        "expense",
+        "travel",
+        "corporate-card",
+        "procurement",
+        "vendor-payment",
+        "meal-entertainment",
+    }
+    assert all(metadata["department"] == "finance" for metadata, _ in parsed_docs)
+    assert all(metadata["security_level"] == "internal" for metadata, _ in parsed_docs)
+
+    char_counts = {
+        path.name: len(path.read_text(encoding="utf-8")) for path in markdown_files
+    }
+    assert all(count >= 1500 for count in char_counts.values()), char_counts
