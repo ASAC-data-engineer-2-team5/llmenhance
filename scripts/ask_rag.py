@@ -31,6 +31,7 @@ def main(argv: list[str] | None = None) -> int:
         args.source_path,
         args.top_k or settings.retrieval_top_k,
         settings=settings,
+        progress=lambda message: print(message, file=sys.stderr),
     )
 
     print("Answer:")

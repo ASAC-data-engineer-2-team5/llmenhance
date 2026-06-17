@@ -271,6 +271,57 @@ def test_answer_question_returns_answer_and_sources_on_grounded_path(
     assert "문서에서 확인되지 않습니다" in captured["chat"]["system_prompt"]
 
 
+def test_answer_question_reports_progress_events_on_grounded_path(
+    tmp_path,
+    monkeypatch,
+):
+    pipeline = rag_pipeline()
+    settings = make_settings(tmp_path)
+    seed_sqlite(settings.sqlite_path)
+    progress_events = []
+
+    monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(
+        pipeline,
+        "search_chunks",
+        lambda *args, **kwargs: [
+            {
+                "score": 0.91,
+                "payload": {
+                    "chunk_id": "chunk-1",
+                    "source_path": "datasets/docs/hr/leave-policy.md",
+                    "title": "Annual Leave Policy",
+                },
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "chat_qwen",
+        lambda *args, **kwargs: "연차 신청은 최소 3영업일 전까지 해야 합니다.",
+    )
+
+    pipeline.answer_question(
+        "연차 신청은 며칠 전까지 해야 하나요?",
+        "policy",
+        "hr",
+        "leave",
+        "internal",
+        None,
+        5,
+        settings=settings,
+        progress=progress_events.append,
+    )
+
+    assert progress_events == [
+        "[1/5] SQLite metadata filter...",
+        "[2/5] Embedding question...",
+        "[3/5] Searching Qdrant...",
+        "[4/5] Building grounded context...",
+        "[5/5] Generating answer with Qwen...",
+    ]
+
+
 def test_ask_rag_cli_prints_answer_and_sources(monkeypatch, capsys):
     cli = ask_rag()
 
@@ -307,3 +358,35 @@ def test_ask_rag_cli_prints_answer_and_sources(monkeypatch, capsys):
     assert "연차 신청은 최소 3영업일 전까지 해야 합니다." in output
     assert "Sources:" in output
     assert "- datasets/docs/hr/leave-policy.md#chunk-1 (score: 0.91)" in output
+
+
+def test_ask_rag_cli_prints_progress_to_stderr(monkeypatch, capsys):
+    cli = ask_rag()
+
+    def fake_answer_question(*args, **kwargs):
+        kwargs["progress"]("[1/5] SQLite metadata filter...")
+        kwargs["progress"]("[5/5] Generating answer with Qwen...")
+        return {
+            "answer": "연차 신청은 최소 3영업일 전까지 해야 합니다.",
+            "sources": [],
+        }
+
+    monkeypatch.setattr(cli, "answer_question", fake_answer_question)
+
+    exit_code = cli.main(
+        [
+            "연차 신청은 며칠 전까지 해야 하나요?",
+            "--department",
+            "hr",
+            "--category",
+            "leave",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "[1/5] SQLite metadata filter..." in captured.err
+    assert "[5/5] Generating answer with Qwen..." in captured.err
+    assert "[1/5] SQLite metadata filter..." not in captured.out
+    assert "Answer:" in captured.out
+    assert "Sources:" in captured.out
