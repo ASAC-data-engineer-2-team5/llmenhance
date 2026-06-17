@@ -113,6 +113,29 @@ Next:
 - End-to-end verification runbook
 ```
 
+## Team Handoff Role
+
+The former cloud infrastructure role is now the local MVP handoff role.
+
+```text
+Role: Local MVP Handoff & Runbook Owner
+Goal: Verify that a teammate can clone this repository and run the MVP locally without relying on the original developer's machine.
+```
+
+Responsibilities:
+
+```text
+- Clone the repository from a clean local workspace.
+- Start Qdrant and rag-api with Docker Compose.
+- Verify that the container can reach host Ollama through host.docker.internal:11434.
+- Run Markdown ingestion against datasets/docs.
+- Run the sample RAG CLI question and confirm that Answer and Sources are printed.
+- Document setup steps, expected output, common failures, and fixes in docs/RAG_MVP_RUNBOOK.md.
+- Keep .env files, SQLite databases, caches, and generated vector data out of git.
+```
+
+This role should focus on reproducibility, documentation, and operational verification. Core RAG behavior changes such as prompt policy, SQLite/Qdrant contracts, and Qwen request structure should be reviewed with the implementation owner before editing.
+
 ## Document Metadata Direction
 
 Internal documents should be filterable by explicit metadata:
