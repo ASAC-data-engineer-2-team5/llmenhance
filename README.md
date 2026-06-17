@@ -153,7 +153,7 @@ tests/test_vector_store.py
 
 ```text
 scripts/ingest_md.py
-datasets/docs/hr/leave-policy.md
+datasets/docs/**/*.md
 tests/test_ingest_md.py
 ```
 
@@ -170,13 +170,21 @@ tests/test_ingest_md.py
 - qdrant point id는 uuid5(NAMESPACE_URL, chunk_id)로 deterministic UUID 생성
 ```
 
-현재 sample document:
+현재 sample documents:
 
 ```text
 datasets/docs/hr/leave-policy.md
+datasets/docs/hr/remote-work-policy.md
+datasets/docs/hr/onboarding-guide.md
+datasets/docs/finance/expense-policy.md
+datasets/docs/finance/travel-policy.md
+datasets/docs/security/privacy-policy.md
+datasets/docs/security/device-security.md
+datasets/docs/general/document-retention.md
+datasets/docs/general/meeting-room-policy.md
 ```
 
-현재 sample document는 HR 연차 규정 1개뿐입니다. 다른 질문에 답하려면 `datasets/docs` 아래에 Markdown 문서를 추가하고 ingestion을 다시 실행해야 합니다.
+현재 sample documents는 HR, finance, security, general 영역의 9개 fictional internal policy 문서입니다. 연차, 재택근무, 온보딩, 경비 처리, 출장비 정산, 개인정보 보호, 업무 기기 보안, 문서 보존, 회의실 이용 질문을 의미 있게 테스트할 수 있습니다. 다른 주제에 답하려면 `datasets/docs` 아래에 Markdown 문서를 추가하고 ingestion을 다시 실행해야 합니다.
 
 ### 7. RAG query pipeline / CLI
 
@@ -293,16 +301,28 @@ docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs
 현재 sample 기준 예상 출력:
 
 ```text
-Documents indexed: 1
-Chunks created: 1
-Vectors inserted: 1
-SQLite rows inserted: 2
+Documents indexed: 9
+Chunks created: N
+Vectors inserted: N
+SQLite rows inserted: 9 + N
 ```
+
+`N`은 chunking 설정과 sample document 길이에 따라 달라집니다.
 
 ### 5. LIVE QA 실행
 
 ```powershell
 docker compose run --rm rag-api python scripts/ask_rag.py "연차 신청은 며칠 전까지 해야 하나요?" --department hr --category leave --top-k 5
+```
+
+다른 sample 질문:
+
+```powershell
+docker compose run --rm rag-api python scripts/ask_rag.py "재택근무는 주 몇 회까지 가능한가요?" --department hr --category remote-work --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "출장비 정산은 언제까지 해야 하나요?" --department finance --category travel --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "경비 처리 시 어떤 증빙이 필요한가요?" --department finance --category expense --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "개인정보가 포함된 문서는 어떻게 보관해야 하나요?" --department security --category privacy --top-k 5
+docker compose run --rm rag-api python scripts/ask_rag.py "회의실 예약을 취소하지 않으면 어떻게 되나요?" --department general --category meeting-room --top-k 5
 ```
 
 예상 출력 형식:

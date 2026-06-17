@@ -228,3 +228,34 @@ Employees submit annual leave requests three business days in advance.
     assert "Chunks created: 2" in output
     assert "Vectors inserted: 2" in output
     assert "SQLite rows inserted: 3" in output
+
+
+def test_repository_sample_docs_cover_core_policy_topics():
+    ingest = ingest_module()
+    docs_root = Path("datasets/docs")
+    markdown_files = ingest.discover_markdown_files(docs_root)
+
+    assert len(markdown_files) == 9
+
+    parsed_docs = [ingest.parse_markdown_file(path) for path in markdown_files]
+    metadata_by_category = {metadata["category"]: metadata for metadata, _ in parsed_docs}
+
+    assert set(metadata_by_category) == {
+        "leave",
+        "remote-work",
+        "onboarding",
+        "expense",
+        "travel",
+        "privacy",
+        "device-security",
+        "document-retention",
+        "meeting-room",
+    }
+    assert {metadata["department"] for metadata, _ in parsed_docs} == {
+        "hr",
+        "finance",
+        "security",
+        "general",
+    }
+    assert all(metadata["security_level"] == "internal" for metadata, _ in parsed_docs)
+    assert all(len(body.split()) >= 120 for _, body in parsed_docs)
