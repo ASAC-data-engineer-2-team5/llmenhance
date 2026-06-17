@@ -65,6 +65,7 @@ def patch_qdrant(monkeypatch, store, *, collection_exists=False, query_points=No
         def __init__(self, url):
             self.url = url
             self.create_collection_calls = []
+            self.delete_collection_calls = []
             self.upsert_calls = []
             self.query_points_calls = []
             clients.append(self)
@@ -75,6 +76,9 @@ def patch_qdrant(monkeypatch, store, *, collection_exists=False, query_points=No
 
         def create_collection(self, **kwargs):
             self.create_collection_calls.append(kwargs)
+
+        def delete_collection(self, collection_name):
+            self.delete_collection_calls.append(collection_name)
 
         def upsert(self, **kwargs):
             self.upsert_calls.append(kwargs)
@@ -130,6 +134,26 @@ def test_ensure_collection_skips_create_when_collection_exists(monkeypatch):
 
     assert clients[0].collection_exists_call == "chunks"
     assert clients[0].create_collection_calls == []
+
+
+def test_delete_collection_if_exists_deletes_existing_collection(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store, collection_exists=True)
+
+    store.delete_collection_if_exists("http://qdrant:6333", "chunks")
+
+    assert clients[0].collection_exists_call == "chunks"
+    assert clients[0].delete_collection_calls == ["chunks"]
+
+
+def test_delete_collection_if_exists_skips_missing_collection(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store, collection_exists=False)
+
+    store.delete_collection_if_exists("http://qdrant:6333", "chunks")
+
+    assert clients[0].collection_exists_call == "chunks"
+    assert clients[0].delete_collection_calls == []
 
 
 @pytest.mark.parametrize("vector_size", [0, -1])

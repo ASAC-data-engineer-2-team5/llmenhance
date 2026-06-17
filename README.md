@@ -298,6 +298,16 @@ docker compose run --rm rag-api python -m app.healthcheck
 
 ### 4. 문서 ingestion
 
+LIVE QA 전에 Markdown 문서, chunk 설정, embedding model, Qdrant collection 상태가 바뀌었을 가능성이 있으면 clean reindex를 실행합니다.
+
+```powershell
+docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs --reset
+```
+
+`--reset`은 기존 SQLite document/chunk row를 지우고 Qdrant collection을 삭제한 뒤, 현재 `datasets/docs` 기준으로 chunking, embedding, SQLite 저장, Qdrant vector upsert를 다시 수행합니다.
+
+일반적인 추가 ingestion이나 같은 문서의 upsert만 필요하면 `--reset` 없이 실행할 수 있습니다.
+
 ```powershell
 docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs
 ```

@@ -15,7 +15,11 @@ from app.chunking import chunk_text
 from app.config import Settings
 from app.embeddings import embed_text
 from app import metadata_store
-from app.vector_store import ensure_collection, upsert_chunk_vectors
+from app.vector_store import (
+    delete_collection_if_exists,
+    ensure_collection,
+    upsert_chunk_vectors,
+)
 
 
 DEFAULT_METADATA = {
@@ -57,7 +61,12 @@ def parse_markdown_file(path: str | Path) -> tuple[dict[str, str], str]:
     return metadata, body
 
 
-def ingest_directory(root_path: str | Path, settings: Settings | None = None) -> IngestionResult:
+def ingest_directory(
+    root_path: str | Path,
+    settings: Settings | None = None,
+    *,
+    reset: bool = False,
+) -> IngestionResult:
     settings = settings or Settings.from_env()
     markdown_files = discover_markdown_files(root_path)
     documents: list[dict] = []
@@ -107,6 +116,8 @@ def ingest_directory(root_path: str | Path, settings: Settings | None = None) ->
     metadata_store.init_db(settings.sqlite_path)
     conn = metadata_store.connect_db(settings.sqlite_path)
     try:
+        if reset:
+            metadata_store.reset_db(conn)
         for document in documents:
             metadata_store.upsert_document(conn, document)
         for chunk in chunks:
@@ -114,6 +125,9 @@ def ingest_directory(root_path: str | Path, settings: Settings | None = None) ->
         conn.commit()
     finally:
         conn.close()
+
+    if reset:
+        delete_collection_if_exists(settings.qdrant_url, settings.qdrant_collection)
 
     if points:
         ensure_collection(
@@ -143,9 +157,14 @@ def print_result(result: IngestionResult) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Ingest Markdown documents into the RAG MVP stores.")
     parser.add_argument("docs_path", help="Directory containing Markdown documents")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Clear existing SQLite rows and Qdrant collection before indexing",
+    )
     args = parser.parse_args(argv)
 
-    ingest_directory(args.docs_path)
+    ingest_directory(args.docs_path, reset=args.reset)
     return 0
 
 

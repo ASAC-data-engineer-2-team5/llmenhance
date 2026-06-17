@@ -85,6 +85,11 @@ def upsert_chunk(conn, chunk: dict) -> None:
     )
 
 
+def reset_db(conn) -> None:
+    conn.execute("DELETE FROM chunks")
+    conn.execute("DELETE FROM documents")
+
+
 def find_candidate_chunk_ids(
     conn,
     doc_type: str | None = None,

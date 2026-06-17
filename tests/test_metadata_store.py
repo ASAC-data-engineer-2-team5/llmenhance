@@ -246,6 +246,49 @@ def test_upserts_do_not_commit_caller_managed_transaction(tmp_path):
         conn.close()
 
 
+def test_reset_db_deletes_chunks_and_documents_but_keeps_schema(tmp_path):
+    store = metadata_store()
+    sqlite_path = tmp_path / "metadata.sqlite"
+    store.init_db(str(sqlite_path))
+    conn = store.connect_db(str(sqlite_path))
+    try:
+        store.upsert_document(
+            conn,
+            make_document(
+                "doc-hr-leave",
+                source_path="datasets/docs/hr/leave-policy.md",
+                department="hr",
+                category="leave",
+            ),
+        )
+        store.upsert_chunk(conn, make_chunk("chunk-hr-leave-0", "doc-hr-leave"))
+        conn.commit()
+
+        store.reset_db(conn)
+        conn.commit()
+
+        assert store.find_candidate_chunk_ids(conn) == []
+
+        store.upsert_document(
+            conn,
+            make_document(
+                "doc-finance-expense",
+                source_path="datasets/docs/finance/expense-policy.md",
+                department="finance",
+                category="expense",
+            ),
+        )
+        store.upsert_chunk(
+            conn,
+            make_chunk("chunk-finance-expense-0", "doc-finance-expense"),
+        )
+        conn.commit()
+
+        assert store.find_candidate_chunk_ids(conn) == ["chunk-finance-expense-0"]
+    finally:
+        conn.close()
+
+
 def test_upsert_document_updates_existing_document_by_id(tmp_path):
     store, conn, _ = open_initialized_db(tmp_path)
 

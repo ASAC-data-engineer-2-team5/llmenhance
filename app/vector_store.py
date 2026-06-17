@@ -24,6 +24,12 @@ def ensure_collection(qdrant_url: str, collection_name: str, vector_size: int) -
     )
 
 
+def delete_collection_if_exists(qdrant_url: str, collection_name: str) -> None:
+    client = QdrantClient(url=qdrant_url)
+    if client.collection_exists(collection_name):
+        client.delete_collection(collection_name=collection_name)
+
+
 def upsert_chunk_vectors(
     qdrant_url: str,
     collection_name: str,

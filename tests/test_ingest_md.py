@@ -230,6 +230,147 @@ Employees submit annual leave requests three business days in advance.
     assert "SQLite rows inserted: 3" in output
 
 
+def test_ingest_directory_reset_clears_sqlite_and_qdrant_before_reindex(
+    tmp_path,
+    monkeypatch,
+):
+    ingest = ingest_module()
+    docs = tmp_path / "datasets" / "docs"
+    docs.mkdir(parents=True)
+    doc_path = docs / "leave-policy.md"
+    doc_path.write_text(
+        """---
+title: Annual Leave Policy
+doc_type: policy
+department: hr
+category: leave
+security_level: internal
+---
+Employees submit annual leave requests three business days in advance.
+""",
+        encoding="utf-8",
+    )
+
+    settings = SimpleNamespace(
+        chunk_size=1200,
+        chunk_overlap=250,
+        ollama_base_url="http://ollama.test",
+        embedding_model="bge-m3",
+        sqlite_path=str(tmp_path / "metadata.sqlite"),
+        qdrant_url="http://qdrant.test",
+        qdrant_collection="chunks",
+    )
+    events = []
+
+    def fake_chunk_text(text, chunk_size, chunk_overlap):
+        return [
+            SimpleNamespace(chunk_index=0, text="chunk one"),
+            SimpleNamespace(chunk_index=1, text="chunk two"),
+        ]
+
+    def fake_embed_text(base_url, model, text):
+        events.append(("embed_text", text))
+        embed_count = sum(
+            1
+            for event in events
+            if isinstance(event, tuple) and event[0] == "embed_text"
+        )
+        return [float(embed_count), 0.2, 0.3]
+
+    class FakeConn:
+        def commit(self):
+            events.append("commit")
+
+        def close(self):
+            events.append("close")
+
+    monkeypatch.setattr(ingest, "chunk_text", fake_chunk_text)
+    monkeypatch.setattr(ingest, "embed_text", fake_embed_text)
+    monkeypatch.setattr(ingest.metadata_store, "init_db", lambda sqlite_path: None)
+    monkeypatch.setattr(
+        ingest.metadata_store,
+        "connect_db",
+        lambda sqlite_path: FakeConn(),
+    )
+    monkeypatch.setattr(
+        ingest.metadata_store,
+        "reset_db",
+        lambda conn: events.append("reset_db"),
+    )
+    monkeypatch.setattr(
+        ingest.metadata_store,
+        "upsert_document",
+        lambda conn, document: events.append(("upsert_document", document["id"])),
+    )
+    monkeypatch.setattr(
+        ingest.metadata_store,
+        "upsert_chunk",
+        lambda conn, chunk: events.append(("upsert_chunk", chunk["id"])),
+    )
+    monkeypatch.setattr(
+        ingest,
+        "delete_collection_if_exists",
+        lambda qdrant_url, collection_name: events.append(
+            ("delete_collection_if_exists", qdrant_url, collection_name)
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        ingest,
+        "ensure_collection",
+        lambda qdrant_url, collection_name, vector_size: events.append(
+            ("ensure_collection", qdrant_url, collection_name, vector_size)
+        ),
+    )
+    monkeypatch.setattr(
+        ingest,
+        "upsert_chunk_vectors",
+        lambda qdrant_url, collection_name, points: events.append(
+            ("upsert_chunk_vectors", qdrant_url, collection_name, len(points))
+        ),
+    )
+
+    result = ingest.ingest_directory(docs, settings=settings, reset=True)
+
+    assert result == ingest.IngestionResult(
+        documents_indexed=1,
+        chunks_created=2,
+        vectors_inserted=2,
+        sqlite_rows_inserted=3,
+    )
+    assert "reset_db" in events
+    assert ("delete_collection_if_exists", "http://qdrant.test", "chunks") in events
+    assert ("ensure_collection", "http://qdrant.test", "chunks", 3) in events
+    assert ("upsert_chunk_vectors", "http://qdrant.test", "chunks", 2) in events
+    first_upsert_document = next(
+        event
+        for event in events
+        if isinstance(event, tuple) and event[0] == "upsert_document"
+    )
+    assert events.index(("embed_text", "chunk two")) < events.index("reset_db")
+    assert events.index("reset_db") < events.index(first_upsert_document)
+    assert events.index("commit") < events.index(
+        ("delete_collection_if_exists", "http://qdrant.test", "chunks")
+    )
+    assert events.index(
+        ("delete_collection_if_exists", "http://qdrant.test", "chunks")
+    ) < events.index(("ensure_collection", "http://qdrant.test", "chunks", 3))
+
+
+def test_ingest_cli_passes_reset_flag(monkeypatch):
+    ingest = ingest_module()
+    calls = []
+
+    monkeypatch.setattr(
+        ingest,
+        "ingest_directory",
+        lambda docs_path, reset=False: calls.append((docs_path, reset)),
+    )
+
+    assert ingest.main(["datasets/docs", "--reset"]) == 0
+    assert calls == [("datasets/docs", True)]
+
+
 def test_repository_sample_docs_cover_core_policy_topics():
     ingest = ingest_module()
     docs_root = Path("datasets/docs")
