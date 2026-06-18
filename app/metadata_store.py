@@ -1,5 +1,5 @@
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 
 def connect_db(sqlite_path: str) -> sqlite3.Connection:

@@ -11,7 +11,6 @@ from app.embeddings import embed_text
 from app.qwen_client import chat_qwen
 from app.vector_store import search_chunks
 
-
 FALLBACK_ANSWER = "문서에서 확인되지 않습니다"
 PROGRESS_MESSAGES = (
     "[1/5] SQLite metadata filter...",
@@ -257,8 +256,7 @@ def _fetch_chunks_by_id(conn, chunk_ids: Iterable[str]) -> dict[str, dict[str, s
 
 def _build_user_prompt(question: str, retrieved_chunks: list[RetrievedChunk]) -> str:
     context = "\n\n".join(
-        _format_context_chunk(index, chunk)
-        for index, chunk in enumerate(retrieved_chunks, start=1)
+        _format_context_chunk(index, chunk) for index, chunk in enumerate(retrieved_chunks, start=1)
     )
     return f"""[context]
 {context}

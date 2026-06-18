@@ -1,7 +1,7 @@
-from pathlib import Path
 import importlib
 import sqlite3
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -124,16 +124,12 @@ def test_init_db_creates_parent_directory_and_schema(tmp_path):
     assert sqlite_path.exists()
     with sqlite3.connect(sqlite_path) as conn:
         tables = {
-            row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            )
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
         }
         assert {"documents", "chunks"} <= tables
 
         document_columns = {
-            row[1]: (row[2], row[3], row[5])
-            for row in conn.execute("PRAGMA table_info(documents)")
+            row[1]: (row[2], row[3], row[5]) for row in conn.execute("PRAGMA table_info(documents)")
         }
         assert document_columns == {
             "id": ("TEXT", 0, 1),
@@ -147,8 +143,7 @@ def test_init_db_creates_parent_directory_and_schema(tmp_path):
         }
 
         chunk_columns = {
-            row[1]: (row[2], row[3], row[5])
-            for row in conn.execute("PRAGMA table_info(chunks)")
+            row[1]: (row[2], row[3], row[5]) for row in conn.execute("PRAGMA table_info(chunks)")
         }
         assert chunk_columns == {
             "id": ("TEXT", 0, 1),

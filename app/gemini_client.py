@@ -31,9 +31,7 @@ def chat_gemini_vertex(
         )
         return _parse_response_text(response)
     except (TypeError, ValueError) as exc:
-        raise RuntimeError(
-            f"Vertex Gemini request failed for model {model!r}: {exc}"
-        ) from exc
+        raise RuntimeError(f"Vertex Gemini request failed for model {model!r}: {exc}") from exc
     finally:
         client.close()
 
@@ -67,9 +65,7 @@ def _generation_config(
         "system_instruction": _system_instruction(system_prompt),
     }
     if thinking_budget is not None:
-        config["thinking_config"] = types.ThinkingConfig(
-            thinking_budget=thinking_budget
-        )
+        config["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
     return types.GenerateContentConfig(**config)
 
 

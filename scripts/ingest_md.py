@@ -1,26 +1,25 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 import sys
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app import metadata_store
 from app.chunking import chunk_text
 from app.config import Settings
 from app.embeddings import embed_text
-from app import metadata_store
 from app.vector_store import (
     delete_collection_if_exists,
     ensure_collection,
     upsert_chunk_vectors,
 )
-
 
 DEFAULT_METADATA = {
     "doc_type": "note",
@@ -85,7 +84,7 @@ def ingest_directory(
             "department": metadata["department"],
             "category": metadata["category"],
             "security_level": metadata["security_level"],
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
         documents.append(document)
 
@@ -155,7 +154,9 @@ def print_result(result: IngestionResult) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Ingest Markdown documents into the RAG MVP stores.")
+    parser = argparse.ArgumentParser(
+        description="Ingest Markdown documents into the RAG MVP stores."
+    )
     parser.add_argument("docs_path", help="Directory containing Markdown documents")
     parser.add_argument(
         "--reset",

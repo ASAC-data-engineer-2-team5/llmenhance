@@ -582,7 +582,7 @@ docker compose run --rm rag-api pytest -v
 현재 확인된 테스트:
 
 ```text
-105 passed
+106 passed
 ```
 
 추가 확인:

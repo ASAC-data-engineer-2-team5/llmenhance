@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -49,9 +49,9 @@ def test_adjacent_chunks_overlap_when_possible():
         Chunk(chunk_index=2, text="ghijk", char_start=6, char_end=11),
         Chunk(chunk_index=3, text="jkl", char_start=9, char_end=12),
     ]
-    for previous, current in zip(chunks, chunks[1:]):
+    for previous, current in zip(chunks, chunks[1:], strict=False):
         assert previous.text[-2:] == current.text[:2]
-        assert current.text == text[current.char_start:current.char_end]
+        assert current.text == text[current.char_start : current.char_end]
 
 
 @pytest.mark.parametrize("chunk_size", [0, -1])

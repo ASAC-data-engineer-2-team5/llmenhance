@@ -20,7 +20,7 @@ class Settings:
     num_predict: int
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         return cls(
             ollama_base_url=_get_str("OLLAMA_BASE_URL", "http://host.docker.internal:11434"),
             llm_model=_get_str("LLM_MODEL", "qwen3.6:latest"),

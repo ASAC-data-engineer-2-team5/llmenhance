@@ -1,7 +1,7 @@
-from pathlib import Path
-from types import SimpleNamespace
 import importlib
 import sys
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -145,8 +145,7 @@ def test_ask_rag_gemini_cli_uses_existing_retrieval_and_gemini_generation(
     assert "Freeze the card" in captured_output.out
     assert "Sources:" in captured_output.out
     assert (
-        "- datasets/docs/finance/corporate-card-policy.md#chunk-card-1 "
-        "(score: 0.91)"
+        "- datasets/docs/finance/corporate-card-policy.md#chunk-card-1 (score: 0.91)"
     ) in captured_output.out
     assert "[5/5] Generating answer with Gemini..." in captured_output.err
     assert "[timing] Gemini generation:" in captured_output.err

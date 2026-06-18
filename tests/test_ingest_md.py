@@ -1,8 +1,8 @@
+import importlib
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
-import importlib
-import sys
 
 import pytest
 
@@ -168,9 +168,9 @@ Employees submit annual leave requests three business days in advance.
     monkeypatch.setattr(
         ingest,
         "ensure_collection",
-        lambda qdrant_url, collection_name, vector_size: calls[
-            "ensure_collection"
-        ].append((qdrant_url, collection_name, vector_size)),
+        lambda qdrant_url, collection_name, vector_size: calls["ensure_collection"].append(
+            (qdrant_url, collection_name, vector_size)
+        ),
     )
     monkeypatch.setattr(
         ingest,
@@ -271,9 +271,7 @@ Employees submit annual leave requests three business days in advance.
     def fake_embed_text(base_url, model, text):
         events.append(("embed_text", text))
         embed_count = sum(
-            1
-            for event in events
-            if isinstance(event, tuple) and event[0] == "embed_text"
+            1 for event in events if isinstance(event, tuple) and event[0] == "embed_text"
         )
         return [float(embed_count), 0.2, 0.3]
 
@@ -343,9 +341,7 @@ Employees submit annual leave requests three business days in advance.
     assert ("ensure_collection", "http://qdrant.test", "chunks", 3) in events
     assert ("upsert_chunk_vectors", "http://qdrant.test", "chunks", 2) in events
     first_upsert_document = next(
-        event
-        for event in events
-        if isinstance(event, tuple) and event[0] == "upsert_document"
+        event for event in events if isinstance(event, tuple) and event[0] == "upsert_document"
     )
     assert events.index(("embed_text", "chunk two")) < events.index("reset_db")
     assert events.index("reset_db") < events.index(first_upsert_document)
@@ -427,7 +423,5 @@ def test_repository_finance_docs_are_dense_enough_for_retrieval_tests():
     assert all(metadata["department"] == "finance" for metadata, _ in parsed_docs)
     assert all(metadata["security_level"] == "internal" for metadata, _ in parsed_docs)
 
-    char_counts = {
-        path.name: len(path.read_text(encoding="utf-8")) for path in markdown_files
-    }
+    char_counts = {path.name: len(path.read_text(encoding="utf-8")) for path in markdown_files}
     assert all(count >= 1500 for count in char_counts.values()), char_counts

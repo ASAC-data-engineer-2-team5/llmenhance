@@ -2,7 +2,6 @@ from uuid import UUID
 
 from qdrant_client import QdrantClient, models
 
-
 REQUIRED_PAYLOAD_FIELDS = ("chunk_id", "document_id", "source_path", "title")
 MAX_QDRANT_UNSIGNED_INTEGER_ID = 2**64 - 1
 
@@ -113,9 +112,7 @@ def _validate_point(point: dict) -> None:
         if field_name not in payload:
             raise ValueError(f"point payload is missing required field: {field_name}")
         if not isinstance(payload[field_name], str) or not payload[field_name].strip():
-            raise ValueError(
-                f"point payload field must be a non-empty string: {field_name}"
-            )
+            raise ValueError(f"point payload field must be a non-empty string: {field_name}")
 
 
 def _validate_point_id(point_id) -> None:
@@ -131,9 +128,7 @@ def _validate_point_id(point_id) -> None:
         try:
             UUID(point_id)
         except ValueError as exc:
-            raise ValueError(
-                "point id must be an unsigned integer or UUID string"
-            ) from exc
+            raise ValueError("point id must be an unsigned integer or UUID string") from exc
         return
 
     raise ValueError("point id must be an unsigned integer or UUID string")

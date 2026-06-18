@@ -1,6 +1,6 @@
-from pathlib import Path
 import importlib
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -56,9 +56,7 @@ def test_chat_gemini_vertex_sends_system_instruction_and_generation_config(
         GenerateContentConfig = FakeConfig
         ThinkingConfig = FakeThinkingConfig
 
-    monkeypatch.setattr(
-        client_module, "_google_genai_modules", lambda: (FakeGenai, FakeTypes)
-    )
+    monkeypatch.setattr(client_module, "_google_genai_modules", lambda: (FakeGenai, FakeTypes))
 
     answer = client_module.chat_gemini_vertex(
         project="project-123",
@@ -83,12 +81,8 @@ def test_chat_gemini_vertex_sends_system_instruction_and_generation_config(
     assert config_kwargs["temperature"] == 0.2
     assert config_kwargs["max_output_tokens"] == 256
     assert config_kwargs["thinking_config"].kwargs == {"thinking_budget": 0}
-    assert "Answer only from retrieved policy chunks." in config_kwargs[
-        "system_instruction"
-    ]
-    assert client_module.PROMPT_INJECTION_GUARD in config_kwargs[
-        "system_instruction"
-    ]
+    assert "Answer only from retrieved policy chunks." in config_kwargs["system_instruction"]
+    assert client_module.PROMPT_INJECTION_GUARD in config_kwargs["system_instruction"]
     assert captured["closed"] is True
 
 
@@ -120,9 +114,7 @@ def test_chat_gemini_vertex_rejects_empty_response_text(monkeypatch):
             def __init__(self, **kwargs):
                 pass
 
-    monkeypatch.setattr(
-        client_module, "_google_genai_modules", lambda: (FakeGenai, FakeTypes)
-    )
+    monkeypatch.setattr(client_module, "_google_genai_modules", lambda: (FakeGenai, FakeTypes))
 
     with pytest.raises(RuntimeError) as exc_info:
         client_module.chat_gemini_vertex(

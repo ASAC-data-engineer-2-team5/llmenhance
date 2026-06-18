@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -56,10 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     print("Sources:")
     if result["sources"]:
         for source in result["sources"]:
-            print(
-                f"- {source['source_path']}#{source['chunk_id']} "
-                f"(score: {source['score']})"
-            )
+            print(f"- {source['source_path']}#{source['chunk_id']} (score: {source['score']})")
     else:
         print("- none")
 

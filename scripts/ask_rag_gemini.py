@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from time import perf_counter
 from typing import TypeVar
 
@@ -20,7 +20,6 @@ from app.rag_pipeline import (
     _hydrate_search_results,
 )
 from app.vector_store import search_chunks
-
 
 PROGRESS_MESSAGES = (
     "[1/5] SQLite metadata filter...",
@@ -73,9 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     if not args.project:
-        parser.error(
-            "--project is required unless GOOGLE_CLOUD_PROJECT or GCP_PROJECT_ID is set"
-        )
+        parser.error("--project is required unless GOOGLE_CLOUD_PROJECT or GCP_PROJECT_ID is set")
 
     settings = Settings.from_env()
     result = answer_question_with_gemini(
@@ -102,10 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     print("Sources:")
     if result["sources"]:
         for source in result["sources"]:
-            print(
-                f"- {source['source_path']}#{source['chunk_id']} "
-                f"(score: {source['score']})"
-            )
+            print(f"- {source['source_path']}#{source['chunk_id']} (score: {source['score']})")
     else:
         print("- none")
 

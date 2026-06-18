@@ -1,7 +1,7 @@
-from pathlib import Path
-from types import SimpleNamespace
 import importlib
 import sys
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -175,9 +175,7 @@ def test_answer_question_falls_back_without_qwen_when_context_is_empty(
     monkeypatch.setattr(
         pipeline,
         "search_chunks",
-        lambda *args, **kwargs: [
-            {"score": 0.9, "payload": {"chunk_id": "missing-chunk"}}
-        ],
+        lambda *args, **kwargs: [{"score": 0.9, "payload": {"chunk_id": "missing-chunk"}}],
     )
     monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: chat_calls.append(args))
 
@@ -345,9 +343,7 @@ def test_answer_question_reports_timing_events_on_grounded_path(
         ]
     )
 
-    monkeypatch.setattr(
-        pipeline, "perf_counter", lambda: next(clock_values), raising=False
-    )
+    monkeypatch.setattr(pipeline, "perf_counter", lambda: next(clock_values), raising=False)
     monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
     monkeypatch.setattr(
         pipeline,
@@ -388,9 +384,7 @@ def test_answer_question_reports_timing_events_on_grounded_path(
         "Grounded context build",
         "Qwen generation",
     ]
-    assert [event[1] for event in timing_events] == pytest.approx(
-        [0.02, 0.35, 0.08, 0.01, 2.00]
-    )
+    assert [event[1] for event in timing_events] == pytest.approx([0.02, 0.35, 0.08, 0.01, 2.00])
 
 
 def test_answer_question_reports_only_completed_timing_events_on_filter_fallback(
@@ -404,20 +398,14 @@ def test_answer_question_reports_only_completed_timing_events_on_filter_fallback
     clock_values = iter([1.00, 1.03])
     calls = {"embed": 0, "search": 0, "chat": 0}
 
-    monkeypatch.setattr(
-        pipeline, "perf_counter", lambda: next(clock_values), raising=False
-    )
-    monkeypatch.setattr(
-        pipeline, "embed_text", lambda *args: calls.__setitem__("embed", 1)
-    )
+    monkeypatch.setattr(pipeline, "perf_counter", lambda: next(clock_values), raising=False)
+    monkeypatch.setattr(pipeline, "embed_text", lambda *args: calls.__setitem__("embed", 1))
     monkeypatch.setattr(
         pipeline,
         "search_chunks",
         lambda *args, **kwargs: calls.__setitem__("search", 1),
     )
-    monkeypatch.setattr(
-        pipeline, "chat_qwen", lambda *args, **kwargs: calls.__setitem__("chat", 1)
-    )
+    monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: calls.__setitem__("chat", 1))
 
     result = pipeline.answer_question(
         "How should a lost corporate card be handled?",
