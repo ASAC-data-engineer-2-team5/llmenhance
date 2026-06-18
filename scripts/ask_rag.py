@@ -10,6 +10,16 @@ from app.config import Settings
 from app.rag_pipeline import answer_question
 
 
+def _timing_logger(enabled: bool):
+    if not enabled:
+        return None
+
+    def log_timing(label: str, seconds: float) -> None:
+        print(f"[timing] {label}: {seconds:.3f}s", file=sys.stderr)
+
+    return log_timing
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Ask the local Qwen RAG pipeline.")
     parser.add_argument("question")
@@ -19,6 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--security-level", default=None)
     parser.add_argument("--source-path", default=None)
     parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument(
+        "--timing",
+        action="store_true",
+        help="Print per-stage RAG timing diagnostics to stderr.",
+    )
     args = parser.parse_args(argv)
 
     settings = Settings.from_env()
@@ -32,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         args.top_k or settings.retrieval_top_k,
         settings=settings,
         progress=lambda message: print(message, file=sys.stderr),
+        timing=_timing_logger(args.timing),
     )
 
     print("Answer:")

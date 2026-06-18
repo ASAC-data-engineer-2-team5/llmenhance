@@ -322,6 +322,121 @@ def test_answer_question_reports_progress_events_on_grounded_path(
     ]
 
 
+def test_answer_question_reports_timing_events_on_grounded_path(
+    tmp_path,
+    monkeypatch,
+):
+    pipeline = rag_pipeline()
+    settings = make_settings(tmp_path)
+    seed_sqlite(settings.sqlite_path)
+    timing_events = []
+    clock_values = iter(
+        [
+            0.00,
+            0.02,
+            0.02,
+            0.37,
+            0.37,
+            0.45,
+            0.45,
+            0.46,
+            0.46,
+            2.46,
+        ]
+    )
+
+    monkeypatch.setattr(
+        pipeline, "perf_counter", lambda: next(clock_values), raising=False
+    )
+    monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(
+        pipeline,
+        "search_chunks",
+        lambda *args, **kwargs: [
+            {
+                "score": 0.91,
+                "payload": {
+                    "chunk_id": "chunk-1",
+                    "source_path": "datasets/docs/hr/leave-policy.md",
+                    "title": "Annual Leave Policy",
+                },
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "chat_qwen",
+        lambda *args, **kwargs: "Annual leave must be requested in advance.",
+    )
+
+    pipeline.answer_question(
+        "When should annual leave be requested?",
+        "policy",
+        "hr",
+        "leave",
+        "internal",
+        None,
+        5,
+        settings=settings,
+        timing=lambda label, seconds: timing_events.append((label, seconds)),
+    )
+
+    assert [event[0] for event in timing_events] == [
+        "SQLite metadata filter",
+        "Embedding question",
+        "Qdrant search",
+        "Grounded context build",
+        "Qwen generation",
+    ]
+    assert [event[1] for event in timing_events] == pytest.approx(
+        [0.02, 0.35, 0.08, 0.01, 2.00]
+    )
+
+
+def test_answer_question_reports_only_completed_timing_events_on_filter_fallback(
+    tmp_path,
+    monkeypatch,
+):
+    pipeline = rag_pipeline()
+    settings = make_settings(tmp_path)
+    seed_sqlite(settings.sqlite_path)
+    timing_events = []
+    clock_values = iter([1.00, 1.03])
+    calls = {"embed": 0, "search": 0, "chat": 0}
+
+    monkeypatch.setattr(
+        pipeline, "perf_counter", lambda: next(clock_values), raising=False
+    )
+    monkeypatch.setattr(
+        pipeline, "embed_text", lambda *args: calls.__setitem__("embed", 1)
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "search_chunks",
+        lambda *args, **kwargs: calls.__setitem__("search", 1),
+    )
+    monkeypatch.setattr(
+        pipeline, "chat_qwen", lambda *args, **kwargs: calls.__setitem__("chat", 1)
+    )
+
+    result = pipeline.answer_question(
+        "How should a lost corporate card be handled?",
+        "policy",
+        "finance",
+        "corporate-card",
+        "internal",
+        None,
+        5,
+        settings=settings,
+        timing=lambda label, seconds: timing_events.append((label, seconds)),
+    )
+
+    assert result == {"answer": pipeline.FALLBACK_ANSWER, "sources": []}
+    assert calls == {"embed": 0, "search": 0, "chat": 0}
+    assert [event[0] for event in timing_events] == ["SQLite metadata filter"]
+    assert [event[1] for event in timing_events] == pytest.approx([0.03])
+
+
 def test_ask_rag_cli_prints_answer_and_sources(monkeypatch, capsys):
     cli = ask_rag()
 
@@ -390,3 +505,63 @@ def test_ask_rag_cli_prints_progress_to_stderr(monkeypatch, capsys):
     assert "[1/5] SQLite metadata filter..." not in captured.out
     assert "Answer:" in captured.out
     assert "Sources:" in captured.out
+
+
+def test_ask_rag_cli_prints_timing_to_stderr_when_requested(monkeypatch, capsys):
+    cli = ask_rag()
+    captured_kwargs = {}
+
+    def fake_answer_question(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        kwargs["timing"]("Qwen generation", 1.23456)
+        return {
+            "answer": "The corporate card policy confirms the required action.",
+            "sources": [],
+        }
+
+    monkeypatch.setattr(cli, "answer_question", fake_answer_question)
+
+    exit_code = cli.main(
+        [
+            "How should a lost corporate card be handled?",
+            "--department",
+            "finance",
+            "--category",
+            "corporate-card",
+            "--timing",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert callable(captured_kwargs["timing"])
+    assert "[timing] Qwen generation: 1.235s" in captured.err
+    assert "[timing]" not in captured.out
+    assert "Answer:" in captured.out
+
+
+def test_ask_rag_cli_omits_timing_callback_by_default(monkeypatch):
+    cli = ask_rag()
+    captured_kwargs = {}
+
+    def fake_answer_question(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return {
+            "answer": "The corporate card policy confirms the required action.",
+            "sources": [],
+        }
+
+    monkeypatch.setattr(cli, "answer_question", fake_answer_question)
+
+    exit_code = cli.main(
+        [
+            "How should a lost corporate card be handled?",
+            "--department",
+            "finance",
+            "--category",
+            "corporate-card",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured_kwargs["timing"] is None

@@ -359,6 +359,31 @@ Sources:
 - datasets/docs/hr/leave-policy.md#doc:datasets/docs/hr/leave-policy.md:chunk:0000 (score: ...)
 ```
 
+### Timing diagnostics
+
+Use `--timing` when a query feels slow and you need to identify the slow RAG stage.
+Timing lines are written to stderr with the existing progress logs, while the final
+answer and sources stay on stdout.
+
+```powershell
+docker compose run --rm rag-api python scripts/ask_rag.py "법인카드를 분실하면 어떻게 해야 하나요?" --department finance --category corporate-card --top-k 5 --timing
+```
+
+Example diagnostic output:
+
+```text
+[1/5] SQLite metadata filter...
+[timing] SQLite metadata filter: 0.012s
+[2/5] Embedding question...
+[timing] Embedding question: 0.384s
+[3/5] Searching Qdrant...
+[timing] Qdrant search: 0.046s
+[4/5] Building grounded context...
+[timing] Grounded context build: 0.005s
+[5/5] Generating answer with Qwen...
+[timing] Qwen generation: 18.742s
+```
+
 Qwen 생성은 로컬 환경에 따라 1분 이상 걸릴 수 있습니다.
 
 ## 검증 상태
