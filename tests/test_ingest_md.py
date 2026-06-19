@@ -367,61 +367,23 @@ def test_ingest_cli_passes_reset_flag(monkeypatch):
     assert calls == [("datasets/docs", True)]
 
 
-def test_repository_sample_docs_cover_core_policy_topics():
+def test_repository_regulations_corpus_is_present_and_dense():
     ingest = ingest_module()
     docs_root = Path("datasets/docs")
     markdown_files = ingest.discover_markdown_files(docs_root)
 
-    assert len(markdown_files) == 13
+    assert len(markdown_files) == 1
+    assert markdown_files[0].name == "regulations.md"
 
-    parsed_docs = [ingest.parse_markdown_file(path) for path in markdown_files]
-    metadata_by_category = {metadata["category"]: metadata for metadata, _ in parsed_docs}
+    metadata, body = ingest.parse_markdown_file(markdown_files[0])
 
-    assert set(metadata_by_category) == {
-        "leave",
-        "remote-work",
-        "onboarding",
-        "expense",
-        "travel",
-        "corporate-card",
-        "procurement",
-        "vendor-payment",
-        "meal-entertainment",
-        "privacy",
-        "device-security",
-        "document-retention",
-        "meeting-room",
-    }
-    assert {metadata["department"] for metadata, _ in parsed_docs} == {
-        "hr",
-        "finance",
-        "security",
-        "general",
-    }
-    assert all(metadata["security_level"] == "internal" for metadata, _ in parsed_docs)
-    assert all(len(body.split()) >= 120 for _, body in parsed_docs)
+    # regulations.md ships without front matter, so ingestion applies defaults.
+    assert metadata["department"] == "general"
+    assert metadata["category"] == "general"
+    assert metadata["security_level"] == "internal"
 
-
-def test_repository_finance_docs_are_dense_enough_for_retrieval_tests():
-    ingest = ingest_module()
-    docs_root = Path("datasets/docs/finance")
-    markdown_files = ingest.discover_markdown_files(docs_root)
-
-    assert len(markdown_files) == 6
-
-    parsed_docs = [ingest.parse_markdown_file(path) for path in markdown_files]
-    metadata_by_category = {metadata["category"]: metadata for metadata, _ in parsed_docs}
-
-    assert set(metadata_by_category) == {
-        "expense",
-        "travel",
-        "corporate-card",
-        "procurement",
-        "vendor-payment",
-        "meal-entertainment",
-    }
-    assert all(metadata["department"] == "finance" for metadata, _ in parsed_docs)
-    assert all(metadata["security_level"] == "internal" for metadata, _ in parsed_docs)
+    # The corpus must stay dense enough to exercise chunking and retrieval.
+    assert len(body.split()) >= 1000
 
     char_counts = {path.name: len(path.read_text(encoding="utf-8")) for path in markdown_files}
     assert all(count >= 1500 for count in char_counts.values()), char_counts
