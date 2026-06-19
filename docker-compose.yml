@@ -18,6 +18,8 @@ services:
       - .:/app
       - rag_storage:/app/storage
     working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: python -m app.healthcheck
 
 volumes:
