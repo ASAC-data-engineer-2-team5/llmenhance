@@ -29,8 +29,8 @@ RAG 검색 품질 평가 (RAGAS 기반)
 from __future__ import annotations
 import json, sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
-from master_questions import QUESTIONS
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from eval.master_questions import QUESTIONS
 from app.config import Settings
 from app.rag_pipeline import answer_question
 from app.embeddings import embed_text

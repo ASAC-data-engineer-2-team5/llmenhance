@@ -31,7 +31,7 @@ LLM-as-Judge: 답변 품질 정성 평가 (AWS Bedrock 버전)
 from __future__ import annotations
 import json, sys, os, time
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 try:
     from anthropic import AnthropicBedrock
@@ -39,7 +39,7 @@ except ImportError:
     print("anthropic[bedrock] 미설치: pip install \"anthropic[bedrock]\" boto3 --break-system-packages")
     sys.exit(1)
 
-from master_questions import QUESTIONS
+from eval.master_questions import QUESTIONS
 from app.config import Settings
 from app.rag_pipeline import answer_question
 

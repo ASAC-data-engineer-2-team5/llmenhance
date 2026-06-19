@@ -28,7 +28,7 @@
 from __future__ import annotations
 import time, json, sys, subprocess
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 try:
     import psutil
@@ -36,7 +36,7 @@ except ImportError:
     print("psutil 미설치: pip install psutil --break-system-packages")
     sys.exit(1)
 
-from master_questions import QUESTIONS
+from eval.master_questions import QUESTIONS
 from app.config import Settings
 from app.rag_pipeline import answer_question
 

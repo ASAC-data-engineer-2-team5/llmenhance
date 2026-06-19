@@ -51,8 +51,8 @@ Custom IFEval + 성능 측정 통합 평가
 from __future__ import annotations
 import re, time, json, sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
-from master_questions import QUESTIONS
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from eval.master_questions import QUESTIONS
 from app.config import Settings
 from app.rag_pipeline import answer_question
 
