@@ -4,3 +4,10 @@ pytest
 python-dotenv
 qdrant-client
 pyyaml
+
+# 평가 프레임워크
+ragas
+langchain-aws
+datasets
+boto3
+anthropic[bedrock]
