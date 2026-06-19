@@ -100,7 +100,7 @@ def evaluate_one(item, settings=None):
     start = time.time()
     result = answer_question(
         item["question"], doc_type=None,
-        department=item["department"], category=item["category"],
+        department=item["department"], category=None,
         security_level=None, source_path=None, top_k=5, settings=_settings,
     )
     elapsed = round(time.time() - start, 2)
