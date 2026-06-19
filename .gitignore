@@ -11,7 +11,16 @@ Thumbs.db
 # Environment
 .env
 .env.*
+.env.backup.*
 !.env.example
+!.env.shared-ec2.example
+!.env.local-ollama.example
+
+# Local RAG state
+storage/
+*.sqlite
+*.sqlite3
+qdrant_storage/
 
 # Logs
 *.log
@@ -49,3 +58,7 @@ target/
 *.zip
 *.tar
 *.tar.gz
+
+# Local worktrees
+.worktrees/
+worktrees/

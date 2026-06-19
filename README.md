@@ -4,6 +4,66 @@
 
 목표는 일반적인 RAG 데모가 아니라, 직원이 실제로 묻는 회사 정책 질문에 대해 검색된 내부 문서 chunk만 근거로 답하고, 모든 답변에 source를 남기는 것입니다.
 
+## Agent Setup Quickstart
+
+If you are a CLI coding agent asked to set up this project, follow this section exactly.
+
+The default team environment uses the shared EC2 Ollama endpoint. Do not move Ollama/Qwen into Docker. For the MVP, Docker runs the app, Qdrant, SQLite ingestion, and tests locally; Ollama model serving stays outside Docker and is reached through `OLLAMA_BASE_URL`.
+
+From the repository root, run:
+
+```powershell
+.\scripts\dev_setup.ps1 -Profile shared-ec2 -ForceEnv
+.\scripts\dev_verify.ps1
+```
+
+Setup is complete only when `scripts/dev_verify.ps1` prints:
+
+```text
+SETUP_OK
+```
+
+What the scripts do:
+
+```text
+scripts/dev_setup.ps1
+- creates .env from .env.shared-ec2.example
+- checks Docker Desktop
+- verifies the shared EC2 Ollama API endpoint
+- verifies bge-m3 and qwen3:4b-instruct are available on EC2
+- builds and starts Docker Compose services
+- rebuilds SQLite and Qdrant indexes from datasets/docs
+
+scripts/dev_verify.ps1
+- checks the active TEAM_ENV_PROFILE and OLLAMA_BASE_URL
+- verifies the configured Ollama endpoint and required models
+- checks Qdrant at localhost:6333
+- runs app.healthcheck
+- runs pytest
+- asks one sample policy question
+- verifies that Sources are present
+```
+
+The shared profile creates `.env` from `.env.shared-ec2.example` and uses:
+
+```env
+TEAM_ENV_PROFILE=shared-ec2
+OLLAMA_BASE_URL=http://16.208.81.115:11434
+LLM_MODEL=qwen3:4b-instruct
+EMBEDDING_MODEL=bge-m3
+```
+
+Use the local Ollama fallback only when the shared EC2 endpoint is unavailable or when explicitly asked:
+
+```powershell
+.\scripts\dev_setup.ps1 -Profile local-ollama -ForceEnv
+.\scripts\dev_verify.ps1
+```
+
+Do not claim setup is complete unless `SETUP_OK` is printed. Do not commit `.env`, `.env.backup.*`, `storage/`, SQLite files, Qdrant vector data, model files, or local credentials.
+
+Detailed team environment notes are in `docs/TEAM_ENVIRONMENT.md`. Local-only setup notes are in `docs/LOCAL_SETUP.md`.
+
 예상 질문:
 
 ```text
@@ -137,6 +197,67 @@ gemini-2.5-flash
 - 로컬 RAM 사용량 부담 없음
 ```
 
+### 2026-06-18 RAG harness vs pure model 비교
+
+이번 비교는 `모델 자체 성능`과 `RAG 하네스를 적용한 업무 QA 성능`을 분리해서 보기 위한 실험입니다.
+
+#### 1. RAG 하네스를 통과한 정책 QA
+
+질문:
+
+```text
+법인카드를 분실하면 어떻게 해야 하나요?
+```
+
+동일하게 적용한 하네스:
+
+```text
+SQLite metadata hard filter(department=finance, category=corporate-card)
+-> Ollama bge-m3 embedding
+-> Qdrant top_k=3 search
+-> SQLite chunk text 복원
+-> grounded prompt
+-> source references 출력
+```
+
+| Model | 실행 위치 | Generation | 핵심 답변 | Source |
+| --- | --- | ---: | --- | --- |
+| gemini-2.5-flash | Vertex API | 2.415s | 발견 즉시 카드사 사용 정지 요청, finance와 팀장 신고, 마지막 사용 시각/분실 추정 장소/최근 승인 내역/부정 사용 의심 여부 포함 | corporate-card-policy chunk 0000, 0001 |
+| qwen2.5:7b | AWS EC2 g4dn.xlarge + Ollama | 4.725s | 발견 즉시 카드사 사용 정지 요청, finance와 팀장 신고, 신고 항목 포함. 추가로 finance의 재발급 결정과 보안 부서 조사 언급 | corporate-card-policy chunk 0000, 0001 |
+
+관찰:
+
+```text
+- 두 모델 모두 같은 SQLite hard filter와 Qdrant 검색 결과를 사용했습니다.
+- 두 모델 모두 동일한 핵심 조치와 동일한 source를 반환했습니다.
+- Qwen 답변의 추가 문장도 검색된 문서 chunk 안의 내용에 근거한 것이므로 hallucination으로 보지 않았습니다.
+- 따라서 RAG 하네스를 통과하면 모델이 달라도 정책 QA의 핵심 답변이 거의 일치했습니다.
+```
+
+#### 2. RAG 없는 순수 모델 비교
+
+질문:
+
+```text
+피타고라스 정리에 대해 중학생도 이해할 수 있게 한국어로 간결하게 설명해줘.
+수식 a²+b²=c² 와 3-4-5 숫자 예시를 포함해줘. 이모지는 사용하지 마.
+```
+
+| Model | 실행 위치 | Generation | 품질 메모 |
+| --- | --- | ---: | --- |
+| gemini-2.5-flash | Vertex API | 6.114s | 직각삼각형, 빗변, 공식, 3-4-5 예시를 자연스럽고 정확하게 설명 |
+| qwen2.5:7b | AWS EC2 g4dn.xlarge + Ollama | 4.043s warm / 40.313s cold warm-up | 공식과 3-4-5 계산은 맞았지만, 첫 문장에서 `직각삼각형의 둘레 길이에 대한 규칙`이라고 설명해 개념 표현 오류가 있었음 |
+
+해석:
+
+```text
+- RAG가 없는 일반 지식 설명에서는 Gemini 2.5 Flash가 Qwen2.5:7b보다 설명 품질이 확실히 좋았습니다.
+- Qwen2.5:7b는 짧고 빠르게 답했지만, 피타고라스 정리를 "둘레 길이" 규칙처럼 표현하는 오류가 있었습니다.
+- 반대로 RAG + SQLite hard filtering + source 기반 grounded prompt를 적용한 정책 질문에서는 두 모델의 답변 차이가 크게 줄었습니다.
+- 즉, 이 프로젝트의 RAG 하네스는 단순 검색 부가 기능이 아니라 모델 성능 편차를 줄이고 업무 QA 답변을 안정화하는 장치입니다.
+- MVP 관점에서는 Gemini가 순수 모델 성능과 속도에서 우위지만, on-prem/local Qwen도 문서 근거가 충분한 정책 QA에서는 실사용 가능한 답변으로 수렴할 가능성이 있습니다.
+```
+
 주의:
 
 ```text
@@ -187,7 +308,7 @@ tests/
 
 ```env
 OLLAMA_BASE_URL=http://host.docker.internal:11434
-LLM_MODEL=qwen3.6:latest
+LLM_MODEL=qwen3:4b-instruct
 EMBEDDING_MODEL=bge-m3
 
 QDRANT_URL=http://qdrant:6333
@@ -249,13 +370,7 @@ ollama pull bge-m3
 ollama pull qwen3:4b-instruct
 ```
 
-기본 `.env`가 `qwen3.6:latest`를 가리키면 해당 모델도 필요합니다.
-
-```powershell
-ollama pull qwen3.6:latest
-```
-
-로컬 PC RAM이 부족하면 작은 모델부터 테스트합니다.
+팀 기본 `.env`는 `qwen3:4b-instruct`를 사용합니다. 로컬 PC RAM이 부족하면 더 작은 모델부터 테스트합니다.
 
 ```powershell
 ollama pull qwen3:4b-instruct
@@ -301,7 +416,7 @@ docker compose run --rm rag-api python -m app.healthcheck
 
 ```text
 llmenhance rag-api healthcheck
-LLM model: qwen3.6:latest
+LLM model: qwen3:4b-instruct
 Embedding model: bge-m3
 Ollama base URL: http://host.docker.internal:11434
 Qdrant URL: http://qdrant:6333
@@ -570,6 +685,10 @@ finally:
 | 2026-06-18 | qwen3:4b | default | 256 | 5 | 0.456s | 0.033s | 45.237s | - | - | 영어 reasoning 출력 |
 | 2026-06-18 | qwen3:4b-instruct | 2048 | 192 | 3 | 1.966s | 0.030s | 28.692s | - | - | 한국어 답변 정상 |
 | 2026-06-18 | gemini-2.5-flash | - | 256 | 3 | 0.519s | 0.064s | 2.126s | - | host RAM 부담 없음 | 답변 정상 |
+| 2026-06-18 | gemini-2.5-flash(RAG) | - | 256 | 3 | 3.409s | 0.184s | 2.415s | - | host RAM 부담 없음 | Qwen과 핵심 답변 및 source 거의 일치 |
+| 2026-06-18 | qwen2.5:7b(RAG) | default | 256 | 3 | 2.417s | 0.193s | 4.725s | - | EC2 GPU 사용 | Gemini와 핵심 답변 및 source 거의 일치 |
+| 2026-06-18 | gemini-2.5-flash(순수 모델) | - | 512 | - | - | - | 6.114s | - | host RAM 부담 없음 | 피타고라스 설명 정확도와 자연스러움 우수 |
+| 2026-06-18 | qwen2.5:7b(순수 모델) | default | 512 | - | - | - | 4.043s warm | - | EC2 GPU 사용 | 공식은 맞았지만 `둘레 길이` 표현 오류. cold warm-up 40.313s |
 
 ## 테스트
 
