@@ -1,0 +1,6 @@
+qwen3:4b-instruct
+qwen2.5:7b
+qwen2.5:14b
+phi4-mini
+exaone3.5:7.8b
+llama3.1:8b
