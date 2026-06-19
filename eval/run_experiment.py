@@ -128,6 +128,20 @@ def judge_answer(client, item: dict, answer: str) -> dict:
         return {"score": None, "reason": f"채점 오류: {exc}"}
 
 
+def _warmup(settings: Settings) -> None:
+    from app.rag_pipeline import answer_question
+    try:
+        print("  [warmup] 모델 로딩 중...", end=" ", flush=True)
+        t = time.time()
+        answer_question(
+            "안녕", doc_type=None, department=None, category=None,
+            security_level=None, source_path=None, top_k=1, settings=settings,
+        )
+        print(f"완료 ({time.time() - t:.1f}s)")
+    except Exception:
+        print("(skip)")
+
+
 def run_for_model(
     model: str,
     base_settings: Settings,
@@ -135,6 +149,7 @@ def run_for_model(
     judge_client,
 ) -> dict:
     settings = replace(base_settings, llm_model=model)
+    _warmup(settings)
     results = []
 
     for i, item in enumerate(eval_questions, 1):
