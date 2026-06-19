@@ -3,7 +3,7 @@ from typing import Any
 
 import httpx
 
-TIMEOUT_SECONDS = 30
+TIMEOUT_SECONDS = 120
 
 
 def embed_text(base_url: str, model: str, text: str) -> list[float]:
