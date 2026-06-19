@@ -95,12 +95,13 @@ CHECK_FN = {
 }
 
 
-def evaluate_one(item):
+def evaluate_one(item, settings=None):
+    _settings = settings or Settings.from_env()
     start = time.time()
     result = answer_question(
         item["question"], doc_type=None,
         department=item["department"], category=item["category"],
-        security_level=None, source_path=None, top_k=5, settings=settings,
+        security_level=None, source_path=None, top_k=5, settings=_settings,
     )
     elapsed = round(time.time() - start, 2)
     answer = result["answer"]

@@ -18,6 +18,7 @@ class Settings:
     temperature: float
     num_ctx: int
     num_predict: int
+    bedrock_region: str
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -34,6 +35,7 @@ class Settings:
             temperature=_get_float("TEMPERATURE", 0.0),
             num_ctx=_get_int("NUM_CTX", 4096),
             num_predict=_get_int("NUM_PREDICT", 1024),
+            bedrock_region=_get_str("BEDROCK_REGION", "us-east-1"),
         )
 
 

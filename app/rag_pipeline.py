@@ -6,6 +6,7 @@ from time import perf_counter
 from typing import Any, TypeVar
 
 from app import metadata_store
+from app.bedrock_client import chat_bedrock, is_bedrock_model
 from app.config import Settings
 from app.embeddings import embed_text
 from app.qwen_client import chat_qwen
@@ -17,14 +18,14 @@ PROGRESS_MESSAGES = (
     "[2/5] Embedding question...",
     "[3/5] Searching Qdrant...",
     "[4/5] Building grounded context...",
-    "[5/5] Generating answer with Qwen...",
+    "[5/5] Generating answer...",
 )
 TIMING_LABELS = (
     "SQLite metadata filter",
     "Embedding question",
     "Qdrant search",
     "Grounded context build",
-    "Qwen generation",
+    "LLM generation",
 )
 T = TypeVar("T")
 
@@ -120,15 +121,7 @@ def answer_question(
         answer = _run_timed(
             TIMING_LABELS[4],
             timing,
-            lambda: chat_qwen(
-                active_settings.ollama_base_url,
-                active_settings.llm_model,
-                SYSTEM_PROMPT,
-                user_prompt,
-                active_settings.temperature,
-                active_settings.num_ctx,
-                active_settings.num_predict,
-            ).strip(),
+            lambda: _generate_answer(active_settings, SYSTEM_PROMPT, user_prompt),
         )
 
         if not answer:
@@ -147,6 +140,27 @@ def answer_question(
         }
     finally:
         conn.close()
+
+
+def _generate_answer(settings: Settings, system_prompt: str, user_prompt: str) -> str:
+    if is_bedrock_model(settings.llm_model):
+        return chat_bedrock(
+            settings.llm_model,
+            system_prompt,
+            user_prompt,
+            settings.temperature,
+            settings.num_predict,
+            settings.bedrock_region,
+        ).strip()
+    return chat_qwen(
+        settings.ollama_base_url,
+        settings.llm_model,
+        system_prompt,
+        user_prompt,
+        settings.temperature,
+        settings.num_ctx,
+        settings.num_predict,
+    ).strip()
 
 
 def _report_progress(progress: Callable[[str], None] | None, index: int) -> None:
