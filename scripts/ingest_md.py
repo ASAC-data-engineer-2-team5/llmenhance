@@ -28,6 +28,16 @@ DEFAULT_METADATA = {
     "security_level": "internal",
 }
 
+REGULATIONS_FILENAME = "regulations.md"
+
+REGULATIONS_SECTION_MAP = {
+    "제1편": {"doc_type": "policy", "department": "general",  "category": "general",  "security_level": "internal"},
+    "제2편": {"doc_type": "policy", "department": "hr",       "category": "hr",       "security_level": "internal"},
+    "제3편": {"doc_type": "policy", "department": "finance",  "category": "finance",  "security_level": "internal"},
+    "제4편": {"doc_type": "policy", "department": "security", "category": "security", "security_level": "internal"},
+    "제5편": {"doc_type": "policy", "department": "general",  "category": "ethics",   "security_level": "internal"},
+}
+
 
 @dataclass(frozen=True)
 class IngestionResult:
@@ -35,6 +45,39 @@ class IngestionResult:
     chunks_created: int
     vectors_inserted: int
     sqlite_rows_inserted: int
+
+
+def split_regulations_sections(path: Path) -> list[tuple[dict[str, str], str, str]]:
+    text = path.read_text(encoding="utf-8")
+    sections: list[tuple[str, list[str]]] = []
+    current_header: str | None = None
+    current_lines: list[str] = []
+
+    for line in text.splitlines(keepends=True):
+        if line.startswith("# "):
+            if current_header is not None:
+                sections.append((current_header, current_lines))
+            current_header = line.strip()[2:]
+            current_lines = [line]
+        else:
+            current_lines.append(line)
+
+    if current_header is not None:
+        sections.append((current_header, current_lines))
+
+    result = []
+    for header, lines in sections:
+        section_key = header.split()[0]
+        meta = REGULATIONS_SECTION_MAP.get(section_key, {
+            "doc_type": "policy",
+            "department": "general",
+            "category": "general",
+            "security_level": "internal",
+        })
+        metadata = {"title": f"사내 규정집 - {header}", **meta}
+        result.append((metadata, "".join(lines), section_key))
+
+    return result
 
 
 def discover_markdown_files(root_path: str | Path) -> list[Path]:
@@ -73,44 +116,53 @@ def ingest_directory(
     points: list[dict] = []
 
     for path in markdown_files:
-        metadata, body = parse_markdown_file(path)
         source_path = _source_path(path)
-        document_id = _document_id(source_path)
-        document = {
-            "id": document_id,
-            "source_path": source_path,
-            "title": metadata["title"],
-            "doc_type": metadata["doc_type"],
-            "department": metadata["department"],
-            "category": metadata["category"],
-            "security_level": metadata["security_level"],
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-        documents.append(document)
 
-        for chunk in chunk_text(body, settings.chunk_size, settings.chunk_overlap):
-            chunk_id = _chunk_id(document_id, chunk.chunk_index)
-            vector = embed_text(settings.ollama_base_url, settings.embedding_model, chunk.text)
-            chunk_row = {
-                "id": chunk_id,
-                "document_id": document_id,
-                "chunk_index": chunk.chunk_index,
-                "text": chunk.text,
-                "token_count": _token_count(chunk.text),
+        if path.name == REGULATIONS_FILENAME:
+            entries = [
+                (meta, body, f"doc:{source_path}:{section_key}")
+                for meta, body, section_key in split_regulations_sections(path)
+            ]
+        else:
+            metadata, body = parse_markdown_file(path)
+            entries = [(metadata, body, _document_id(source_path))]
+
+        for metadata, body, document_id in entries:
+            document = {
+                "id": document_id,
+                "source_path": source_path,
+                "title": metadata["title"],
+                "doc_type": metadata["doc_type"],
+                "department": metadata["department"],
+                "category": metadata["category"],
+                "security_level": metadata["security_level"],
+                "created_at": datetime.now(UTC).isoformat(),
             }
-            chunks.append(chunk_row)
-            points.append(
-                {
-                    "id": str(uuid5(NAMESPACE_URL, chunk_id)),
-                    "vector": vector,
-                    "payload": {
-                        "chunk_id": chunk_id,
-                        "document_id": document_id,
-                        "source_path": source_path,
-                        "title": metadata["title"],
-                    },
+            documents.append(document)
+
+            for chunk in chunk_text(body, settings.chunk_size, settings.chunk_overlap):
+                chunk_id = _chunk_id(document_id, chunk.chunk_index)
+                vector = embed_text(settings.ollama_base_url, settings.embedding_model, chunk.text)
+                chunk_row = {
+                    "id": chunk_id,
+                    "document_id": document_id,
+                    "chunk_index": chunk.chunk_index,
+                    "text": chunk.text,
+                    "token_count": _token_count(chunk.text),
                 }
-            )
+                chunks.append(chunk_row)
+                points.append(
+                    {
+                        "id": str(uuid5(NAMESPACE_URL, chunk_id)),
+                        "vector": vector,
+                        "payload": {
+                            "chunk_id": chunk_id,
+                            "document_id": document_id,
+                            "source_path": source_path,
+                            "title": metadata["title"],
+                        },
+                    }
+                )
 
     metadata_store.init_db(settings.sqlite_path)
     conn = metadata_store.connect_db(settings.sqlite_path)
