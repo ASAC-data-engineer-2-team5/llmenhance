@@ -12,7 +12,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import metadata_store
-from app.chunking import chunk_text
+from app.chunking import chunk_text, parse_document, records_to_chunks
 from app.config import Settings
 from app.embeddings import embed_text
 from app.vector_store import (
@@ -47,35 +47,26 @@ class IngestionResult:
     sqlite_rows_inserted: int
 
 
-def split_regulations_sections(path: Path) -> list[tuple[dict[str, str], str, str]]:
+def parse_regulations_entries(path: Path) -> list[tuple[dict[str, str], str, str]]:
     text = path.read_text(encoding="utf-8")
-    sections: list[tuple[str, list[str]]] = []
-    current_header: str | None = None
-    current_lines: list[str] = []
-
-    for line in text.splitlines(keepends=True):
-        if line.startswith("# "):
-            if current_header is not None:
-                sections.append((current_header, current_lines))
-            current_header = line.strip()[2:]
-            current_lines = [line]
-        else:
-            current_lines.append(line)
-
-    if current_header is not None:
-        sections.append((current_header, current_lines))
+    records = parse_document(text)
+    jo_chunks = records_to_chunks(records, mode="single", table_summary=True)
 
     result = []
-    for header, lines in sections:
-        section_key = header.split()[0]
-        meta = REGULATIONS_SECTION_MAP.get(section_key, {
+    for chunk in jo_chunks:
+        meta = chunk["metadata"]
+        pyeon = meta.get("pyeon", "")
+        section_key = pyeon.split()[0] if pyeon else ""
+        dept_meta = REGULATIONS_SECTION_MAP.get(section_key, {
             "doc_type": "policy",
             "department": "general",
             "category": "general",
             "security_level": "internal",
         })
-        metadata = {"title": f"사내 규정집 - {header}", **meta}
-        result.append((metadata, "".join(lines), section_key))
+        jo_label = f"{meta['jo']} ({meta['jo_title']})" if meta.get("jo_title") else meta.get("jo", "")
+        metadata = {"title": jo_label, **dept_meta}
+        document_id_suffix = chunk["id"]
+        result.append((metadata, chunk["text"], document_id_suffix))
 
     return result
 
@@ -120,8 +111,8 @@ def ingest_directory(
 
         if path.name == REGULATIONS_FILENAME:
             entries = [
-                (meta, body, f"doc:{source_path}:{section_key}")
-                for meta, body, section_key in split_regulations_sections(path)
+                (meta, body, f"doc:{source_path}:{suffix}")
+                for meta, body, suffix in parse_regulations_entries(path)
             ]
         else:
             metadata, body = parse_markdown_file(path)

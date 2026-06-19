@@ -28,12 +28,12 @@ class Settings:
             qdrant_url=_get_str("QDRANT_URL", "http://qdrant:6333"),
             qdrant_collection=_get_str("QDRANT_COLLECTION", "llmenhance_chunks"),
             sqlite_path=_get_str("SQLITE_PATH", "/app/storage/metadata.sqlite"),
-            chunk_size=_get_int("CHUNK_SIZE", 1200),
-            chunk_overlap=_get_int("CHUNK_OVERLAP", 250),
+            chunk_size=_get_int("CHUNK_SIZE", 1500),
+            chunk_overlap=_get_int("CHUNK_OVERLAP", 0),
             retrieval_top_k=_get_int("RETRIEVAL_TOP_K", 5),
-            temperature=_get_float("TEMPERATURE", 0.2),
+            temperature=_get_float("TEMPERATURE", 0.0),
             num_ctx=_get_int("NUM_CTX", 4096),
-            num_predict=_get_int("NUM_PREDICT", 512),
+            num_predict=_get_int("NUM_PREDICT", 1024),
         )
 
 
