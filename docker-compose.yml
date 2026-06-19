@@ -20,6 +20,13 @@ services:
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     command: python -m app.healthcheck
 
 volumes:
