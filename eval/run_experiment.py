@@ -128,6 +128,17 @@ def judge_answer(client, item: dict, answer: str) -> dict:
         return {"score": None, "reason": f"채점 오류: {exc}"}
 
 
+def _warmup_embedding(settings: Settings) -> None:
+    from app.embeddings import embed_text
+    print("임베딩 모델(bge-m3) GPU 로딩 중...", end=" ", flush=True)
+    t = time.time()
+    try:
+        embed_text(settings.ollama_base_url, settings.embedding_model, "안녕")
+        print(f"완료 ({time.time() - t:.1f}s)")
+    except Exception as exc:
+        print(f"실패: {exc}")
+
+
 def _warmup(settings: Settings) -> None:
     from app.rag_pipeline import answer_question
     try:
@@ -276,6 +287,8 @@ def main(argv: list[str] | None = None) -> int:
         judge_client = make_judge_client(base_settings.bedrock_region)
 
     RESULTS_DIR.mkdir(exist_ok=True)
+
+    _warmup_embedding(base_settings)
 
     print(f"실험 시작: {len(models)}개 모델 × {len(eval_questions)}개 질문")
     print(f"Judge: {'활성' if judge_client else '비활성 (--no-judge 또는 AWS 자격증명 없음)'}\n")
