@@ -164,6 +164,7 @@ def run_for_model(
         vram_str = f"vram={r['vram_mb']:.0f}MB" if r["vram_mb"] is not None else "vram=N/A"
         score_str = f"judge={r['judge_score']}" if r["judge_score"] is not None else "judge=N/A"
         print(f"latency={r['latency_sec']}s tok/s={r['tokens_per_sec']} {vram_str} {score_str}")
+        print(f"  └─ {r['answer'][:120].strip()}")
 
         time.sleep(0.3)
 
