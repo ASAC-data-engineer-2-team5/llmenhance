@@ -11,3 +11,4 @@ langchain-aws
 datasets
 boto3
 anthropic[bedrock]
+psutil

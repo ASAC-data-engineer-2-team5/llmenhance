@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
 from dataclasses import replace
@@ -26,6 +27,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import boto3
+
+try:
+    import psutil
+    _PSUTIL = True
+except ImportError:
+    _PSUTIL = False
 
 from app.config import Settings
 from eval.custom_ifeval import CHECK_FN, PRICE, evaluate_one
@@ -71,6 +78,26 @@ def model_slug(model: str) -> str:
     return model.replace(":", "_").replace(".", "_").replace("/", "_")
 
 
+def get_vram_mb() -> float | None:
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if out.returncode == 0:
+            return float(out.stdout.strip().split("\n")[0])
+    except (FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+        pass
+    return None
+
+
+def get_cpu_ram() -> tuple[float, float]:
+    if not _PSUTIL:
+        return 0.0, 0.0
+    proc = psutil.Process()
+    return proc.cpu_percent(interval=0.1), proc.memory_info().rss / 1024 / 1024
+
+
 def make_judge_client(region: str):
     try:
         return boto3.client("bedrock-runtime", region_name=region)
@@ -113,7 +140,18 @@ def run_for_model(
     for i, item in enumerate(eval_questions, 1):
         print(f"  [{i:02d}/{len(eval_questions)}] {item['question'][:50]}...", end=" ", flush=True)
 
+        cpu_before, ram_before = get_cpu_ram()
+        vram_before = get_vram_mb()
+
         r = evaluate_one(item, settings=settings)
+
+        cpu_after, ram_after = get_cpu_ram()
+        vram_after = get_vram_mb()
+
+        r["cpu_pct"] = round(max(cpu_before, cpu_after), 1)
+        r["ram_mb"] = round(ram_after, 1)
+        r["vram_mb"] = vram_after
+        r["vram_delta_mb"] = round(vram_after - vram_before, 1) if vram_after is not None and vram_before is not None else None
 
         judged = {"score": None, "reason": ""}
         if item["ground_truth"] and judge_client:
@@ -123,8 +161,9 @@ def run_for_model(
         r["judge_reason"] = judged.get("reason", "")
         results.append(r)
 
+        vram_str = f"vram={r['vram_mb']:.0f}MB" if r["vram_mb"] is not None else "vram=N/A"
         score_str = f"judge={r['judge_score']}" if r["judge_score"] is not None else "judge=N/A"
-        print(f"latency={r['latency_sec']}s {score_str}")
+        print(f"latency={r['latency_sec']}s tok/s={r['tokens_per_sec']} {vram_str} {score_str}")
 
         time.sleep(0.3)
 
@@ -137,6 +176,10 @@ def run_for_model(
     total_cost_gemini = sum(r["cost_gemini"] for r in results)
     total_cost_claude = sum(r["cost_claude"] for r in results)
 
+    vram_readings = [r["vram_mb"] for r in results if r["vram_mb"] is not None]
+    cpu_readings = [r["cpu_pct"] for r in results]
+    ram_readings = [r["ram_mb"] for r in results]
+
     return {
         "model": model,
         "n_questions": len(results),
@@ -144,6 +187,10 @@ def run_for_model(
         "avg_judge_score": round(sum(valid_scores) / len(valid_scores), 1) if valid_scores else None,
         "avg_latency_sec": round(avg_lat, 2),
         "avg_tokens_per_sec": round(avg_tps, 1),
+        "avg_cpu_pct": round(sum(cpu_readings) / len(cpu_readings), 1) if cpu_readings else None,
+        "avg_ram_mb": round(sum(ram_readings) / len(ram_readings), 1) if ram_readings else None,
+        "avg_vram_mb": round(sum(vram_readings) / len(vram_readings), 1) if vram_readings else None,
+        "max_vram_mb": round(max(vram_readings), 1) if vram_readings else None,
         "cost_local": round(total_cost_local, 6),
         "cost_gemini": round(total_cost_gemini, 6),
         "cost_claude": round(total_cost_claude, 6),
@@ -152,25 +199,33 @@ def run_for_model(
 
 
 def print_comparison_table(summaries: list[dict]) -> None:
-    print(f"\n{'='*90}")
+    W = 105
+    print(f"\n{'='*W}")
     print("모델 비교 결과")
-    print(f"{'='*90}")
-    header = f"{'모델':<45} {'형식준수':>8} {'Judge점수':>9} {'Latency':>9} {'tok/s':>7} {'비용(claude)':>12}"
+    print(f"{'='*W}")
+    header = (
+        f"{'모델':<40} {'형식준수':>8} {'Judge':>7} "
+        f"{'Latency':>9} {'tok/s':>7} {'VRAM(MB)':>9} {'CPU%':>6} {'비용(claude)':>12}"
+    )
     print(header)
-    print("-" * 90)
+    print("-" * W)
     for s in summaries:
         judge = f"{s['avg_judge_score']:.1f}" if s["avg_judge_score"] is not None else "N/A"
+        vram = f"{s['avg_vram_mb']:.0f}" if s.get("avg_vram_mb") is not None else "N/A"
+        cpu = f"{s['avg_cpu_pct']:.1f}" if s.get("avg_cpu_pct") is not None else "N/A"
         cost = f"${s['cost_claude']:.5f}"
         row = (
-            f"{s['model']:<45} "
+            f"{s['model']:<40} "
             f"{s['format_compliance_pct']:>7.1f}% "
-            f"{judge:>9} "
+            f"{judge:>7} "
             f"{s['avg_latency_sec']:>8.2f}s "
             f"{s['avg_tokens_per_sec']:>7.1f} "
+            f"{vram:>9} "
+            f"{cpu:>6} "
             f"{cost:>12}"
         )
         print(row)
-    print(f"{'='*90}")
+    print(f"{'='*W}")
 
 
 def main(argv: list[str] | None = None) -> int:
