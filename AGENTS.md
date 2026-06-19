@@ -20,17 +20,22 @@ The product is not a generic RAG demo. The target user is an employee asking pra
 7. Qwen requests must keep system instructions separate from user/context data and include a prompt injection guard.
 ```
 
-## MVP Architecture
+## MVP Architecture (target — work in progress)
 
 ```text
-Markdown internal documents
--> chunking + overlap
--> embedding
--> Qdrant vector DB
--> SQLite metadata hard filter
--> qwen3.6:latest via Ollama
+Structured markdown regulations
+-> structure-aware chunking (편/장/절/조/항, parent-child)
+-> embedding (dense = arctic-embed-l-v2.0 (local); sparse = BM25 + kiwipiepy)
+-> Qdrant hybrid search (dense + BM25, RRF fusion)
+   + payload metadata filter (조/항 path, department, ...)
+-> (optional) cross-encoder rerank
+-> parent(조) expansion
+-> qwen via Ollama
 -> grounded answer with sources
 ```
+
+> NOTE: Target architecture (onprem-legal-rag based). Current code still uses
+> dense search + SQLite hard filter — check app/ and scripts/ before working.
 
 ## Expected User Questions
 
@@ -52,30 +57,6 @@ Do not use project-meta questions such as:
 ```
 
 Those questions describe the engineering project, not the chatbot product.
-
-## Metadata Model
-
-Use internal document metadata for hard filtering:
-
-```text
-doc_type
-department
-category
-security_level
-source_path
-```
-
-Examples:
-
-```yaml
----
-title: 연차 및 휴가 규정
-doc_type: policy
-department: hr
-category: leave
-security_level: internal
----
-```
 
 ## Development Rules
 
