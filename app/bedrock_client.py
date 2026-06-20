@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import boto3
 
 TIMEOUT_SECONDS = 180
@@ -24,6 +26,12 @@ def chat_bedrock(
         region_name=region,
         config=boto3.session.Config(read_timeout=TIMEOUT_SECONDS),
     )
+    if model.startswith("openai."):
+        return _chat_openai_invoke(client, model, system_prompt, user_prompt, max_tokens)
+    return _chat_converse(client, model, system_prompt, user_prompt, temperature, max_tokens)
+
+
+def _chat_converse(client, model, system_prompt, user_prompt, temperature, max_tokens) -> str:
     try:
         response = client.converse(
             modelId=model,
@@ -38,4 +46,23 @@ def chat_bedrock(
     except Exception as exc:
         raise RuntimeError(
             f"Bedrock converse failed for model {model!r}: {exc}"
+        ) from exc
+
+
+def _chat_openai_invoke(client, model, system_prompt, user_prompt, max_tokens) -> str:
+    # OpenAI models on Bedrock use invoke_model with OpenAI-style request format
+    body = json.dumps({
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "max_tokens": max_tokens,
+    })
+    try:
+        response = client.invoke_model(modelId=model, body=body)
+        result = json.loads(response["body"].read())
+        return result["choices"][0]["message"]["content"]
+    except Exception as exc:
+        raise RuntimeError(
+            f"Bedrock invoke_model failed for model {model!r}: {exc}"
         ) from exc
