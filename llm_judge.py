@@ -34,7 +34,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
 
 try:
-    from anthropic import AnthropicBedrock
+    import boto3
 except ImportError:
     print("anthropic[bedrock] 미설치: pip install \"anthropic[bedrock]\" boto3 --break-system-packages")
     sys.exit(1)
@@ -67,12 +67,11 @@ JUDGE_PROMPT = """다음 사내 규정 챗봇의 답변이 정답 기준과 일�
 
 def get_client():
     try:
-        return AnthropicBedrock(aws_region=AWS_REGION)
+        return boto3.client("bedrock-runtime", region_name=AWS_REGION)
     except Exception as e:
         print(f"Bedrock 클라이언트 생성 실패: {e}")
         return None
-
-
+    
 def judge_one(client, item, answer):
     if client is None:
         return {"score": None, "reason": "Bedrock 클라이언트 없음"}
@@ -83,19 +82,27 @@ def judge_one(client, item, answer):
         answer=answer,
     )
     try:
-        response = client.messages.create(
-            model=JUDGE_MODEL,
-            max_tokens=200,
-            messages=[{"role": "user", "content": prompt}],
+        response = client.invoke_model(
+            modelId=JUDGE_MODEL,
+            body=json.dumps({
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 500,  # ← 늘림
+            })
         )
-        text = response.content[0].text.strip()
+        body = json.loads(response["body"].read())
+        text = body["choices"][0]["message"]["content"]
+
+        print(f"  [DEBUG] raw text: {text[:300]!r}")  # ← 디버그 출력 추가
+
+        if "</reasoning>" in text:
+            text = text.split("</reasoning>")[-1]
+
         text = text.replace("```json", "").replace("```", "").strip()
         result = json.loads(text)
         return result
     except Exception as e:
         return {"score": None, "reason": f"채점 오류: {e}"}
-
-
+    
 def run_judge():
     print(f"{'='*60}")
     print(f"LLM-as-Judge 평가 (Bedrock) | {len(EVAL_SET)}개 질문 | 채점자: {JUDGE_MODEL}")
