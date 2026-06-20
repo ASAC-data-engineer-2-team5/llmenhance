@@ -17,6 +17,7 @@ services:
     volumes:
       - .:/app
       - rag_storage:/app/storage
+      - ~/.aws:/root/.aws:ro
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"
