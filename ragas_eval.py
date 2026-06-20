@@ -52,7 +52,7 @@ def get_judge_llm(judge_name: str):
         llm = ChatBedrock(
             model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
             region_name=os.environ.get("AWS_REGION", "us-east-1"),
-            model_kwargs={"temperature": 0, "seed":42 },
+            model_kwargs={"temperature": 0},
         )
         embeddings = BedrockEmbeddings(
             model_id="amazon.titan-embed-text-v2:0",
@@ -64,7 +64,7 @@ def get_judge_llm(judge_name: str):
         llm = ChatBedrock(
             model_id="openai.gpt-oss-120b-1:0",
             region_name=os.environ.get("AWS_REGION", "us-east-1"),
-            model_kwargs={"temperature": 0, "seed": 42},
+            model_kwargs={"temperature": 0},
         )
         embeddings = BedrockEmbeddings(
             model_id="amazon.titan-embed-text-v2:0",
@@ -80,7 +80,6 @@ def get_judge_llm(judge_name: str):
             model="gemini-2.5-flash",
             google_api_key=api_key,
             temperature=0,
-            seed=42,
         )
         embeddings = GoogleGenerativeAIEmbeddings(
             model="models/embedding-001",

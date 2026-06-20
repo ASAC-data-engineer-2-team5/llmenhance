@@ -11,3 +11,4 @@ datasets
 boto3
 anthropic[bedrock]
 langchain_google_genai
+psutil
