@@ -9,30 +9,27 @@ from typing import TypeVar
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app import metadata_store
 from app.config import Settings
 from app.embeddings import embed_text
 from app.gemini_client import chat_gemini_vertex
 from app.rag_pipeline import (
     FALLBACK_ANSWER,
     SYSTEM_PROMPT,
-    _build_user_prompt,
-    _hydrate_search_results,
+    _build_context,
 )
 from app.vector_store import search_chunks
+from scripts.ask_rag import _parse_filters
 
 PROGRESS_MESSAGES = (
-    "[1/5] SQLite metadata filter...",
-    "[2/5] Embedding question...",
-    "[3/5] Searching Qdrant...",
-    "[4/5] Building grounded context...",
-    "[5/5] Generating answer with Gemini...",
+    "[1/4] Embedding question...",
+    "[2/4] Searching Qdrant (metadata filter)...",
+    "[3/4] Expanding to parent articles...",
+    "[4/4] Generating answer with Gemini...",
 )
 TIMING_LABELS = (
-    "SQLite metadata filter",
     "Embedding question",
     "Qdrant search",
-    "Grounded context build",
+    "Parent expansion",
     "Gemini generation",
 )
 T = TypeVar("T")
@@ -43,11 +40,16 @@ def main(argv: list[str] | None = None) -> int:
         description="Ask the local RAG pipeline with Vertex Gemini generation."
     )
     parser.add_argument("question")
-    parser.add_argument("--doc-type", default=None)
-    parser.add_argument("--department", default=None)
-    parser.add_argument("--category", default=None)
-    parser.add_argument("--security-level", default=None)
-    parser.add_argument("--source-path", default=None)
+    parser.add_argument(
+        "--filter",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help=(
+            "payload 메타데이터 동등 비교 필터 (반복 가능). "
+            "예: --filter jang='제2장 휴가' --filter department=finance"
+        ),
+    )
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument("--project", default=_default_project())
     parser.add_argument(
@@ -74,15 +76,12 @@ def main(argv: list[str] | None = None) -> int:
     if not args.project:
         parser.error("--project is required unless GOOGLE_CLOUD_PROJECT or GCP_PROJECT_ID is set")
 
+    metadata_filter = _parse_filters(args.filter)
     settings = Settings.from_env()
     result = answer_question_with_gemini(
         args.question,
-        args.doc_type,
-        args.department,
-        args.category,
-        args.security_level,
-        args.source_path,
         args.top_k or settings.retrieval_top_k,
+        metadata_filter=metadata_filter or None,
         project=args.project,
         location=args.location,
         model=args.model,
@@ -108,13 +107,9 @@ def main(argv: list[str] | None = None) -> int:
 
 def answer_question_with_gemini(
     question: str,
-    doc_type: str | None,
-    department: str | None,
-    category: str | None,
-    security_level: str | None,
-    source_path: str | None,
     top_k: int,
     *,
+    metadata_filter: dict[str, str] | None = None,
     project: str,
     location: str,
     model: str,
@@ -133,90 +128,73 @@ def answer_question_with_gemini(
         raise ValueError("max_output_tokens must be greater than 0")
     if thinking_budget is not None and thinking_budget < -1:
         raise ValueError("thinking_budget must be -1 or greater")
+    if metadata_filter is not None and not isinstance(metadata_filter, dict):
+        raise TypeError("metadata_filter must be a dict or None")
 
-    conn = metadata_store.connect_db(settings.sqlite_path)
-    try:
-        _report_progress(progress, 0)
-        candidate_chunk_ids = _run_timed(
-            TIMING_LABELS[0],
-            timing,
-            lambda: metadata_store.find_candidate_chunk_ids(
-                conn,
-                doc_type=doc_type,
-                department=department,
-                category=category,
-                security_level=security_level,
-                source_path=source_path,
-            ),
-        )
-        if not candidate_chunk_ids:
-            return _fallback_result()
+    _report_progress(progress, 0)
+    query_vector = _run_timed(
+        TIMING_LABELS[0],
+        timing,
+        lambda: embed_text(
+            settings.ollama_base_url,
+            settings.embedding_model,
+            normalized_question,
+        ),
+    )
 
-        _report_progress(progress, 1)
-        query_vector = _run_timed(
-            TIMING_LABELS[1],
-            timing,
-            lambda: embed_text(
-                settings.ollama_base_url,
-                settings.embedding_model,
-                normalized_question,
-            ),
-        )
-        _report_progress(progress, 2)
-        search_results = _run_timed(
-            TIMING_LABELS[2],
-            timing,
-            lambda: search_chunks(
-                settings.qdrant_url,
-                settings.qdrant_collection,
-                query_vector,
-                top_k,
-                candidate_chunk_ids=candidate_chunk_ids,
-            ),
-        )
-        if not search_results:
-            return _fallback_result()
+    _report_progress(progress, 1)
+    search_results = _run_timed(
+        TIMING_LABELS[1],
+        timing,
+        lambda: search_chunks(
+            settings.qdrant_url,
+            settings.qdrant_collection,
+            query_vector,
+            top_k,
+            metadata_filter=metadata_filter or None,
+        ),
+    )
+    if not search_results:
+        return _fallback_result()
 
-        _report_progress(progress, 3)
-        retrieved_chunks, user_prompt = _run_timed(
-            TIMING_LABELS[3],
-            timing,
-            lambda: _build_context(conn, normalized_question, search_results),
-        )
-        if not retrieved_chunks:
-            return _fallback_result()
+    _report_progress(progress, 2)
+    parents, user_prompt = _run_timed(
+        TIMING_LABELS[2],
+        timing,
+        lambda: _build_context(normalized_question, search_results, top_k),
+    )
+    if not parents:
+        return _fallback_result()
 
-        _report_progress(progress, 4)
-        answer = _run_timed(
-            TIMING_LABELS[4],
-            timing,
-            lambda: chat_gemini_vertex(
-                project,
-                location,
-                model,
-                SYSTEM_PROMPT,
-                user_prompt,
-                settings.temperature,
-                max_output_tokens,
-                thinking_budget,
-            ).strip(),
-        )
-        if not answer:
-            return _fallback_result()
+    _report_progress(progress, 3)
+    answer = _run_timed(
+        TIMING_LABELS[3],
+        timing,
+        lambda: chat_gemini_vertex(
+            project,
+            location,
+            model,
+            SYSTEM_PROMPT,
+            user_prompt,
+            settings.temperature,
+            max_output_tokens,
+            thinking_budget,
+        ).strip(),
+    )
+    if not answer:
+        return _fallback_result()
 
-        return {
-            "answer": answer,
-            "sources": [
-                {
-                    "source_path": chunk.source_path,
-                    "chunk_id": chunk.chunk_id,
-                    "score": chunk.score,
-                }
-                for chunk in retrieved_chunks
-            ],
-        }
-    finally:
-        conn.close()
+    return {
+        "answer": answer,
+        "sources": [
+            {
+                "source_path": parent.source_path,
+                "chunk_id": parent.chunk_id,
+                "score": parent.score,
+            }
+            for parent in parents
+        ],
+    }
 
 
 def _default_project() -> str | None:
@@ -255,13 +233,6 @@ def _run_timed(label: str, timing, action) -> T:
 
 def _fallback_result() -> dict:
     return {"answer": FALLBACK_ANSWER, "sources": []}
-
-
-def _build_context(conn, question: str, search_results: list[dict]):
-    retrieved_chunks = _hydrate_search_results(conn, search_results)
-    if not retrieved_chunks:
-        return [], ""
-    return retrieved_chunks, _build_user_prompt(question, retrieved_chunks)
 
 
 if __name__ == "__main__":

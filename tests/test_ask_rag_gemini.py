@@ -7,8 +7,6 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app import metadata_store
-
 
 def ask_rag_gemini():
     try:
@@ -17,9 +15,8 @@ def ask_rag_gemini():
         pytest.fail(f"scripts.ask_rag_gemini should exist: {exc}")
 
 
-def make_settings(tmp_path):
+def make_settings():
     return SimpleNamespace(
-        sqlite_path=str(tmp_path / "metadata.sqlite"),
         ollama_base_url="http://ollama.test",
         embedding_model="bge-m3",
         qdrant_url="http://qdrant.test",
@@ -32,67 +29,43 @@ def make_settings(tmp_path):
     )
 
 
-def seed_sqlite(sqlite_path):
-    metadata_store.init_db(sqlite_path)
-    conn = metadata_store.connect_db(sqlite_path)
-    try:
-        metadata_store.upsert_document(
-            conn,
-            {
-                "id": "doc:datasets/docs/finance/corporate-card-policy.md",
-                "source_path": "datasets/docs/finance/corporate-card-policy.md",
-                "title": "Corporate Card Policy",
-                "doc_type": "policy",
-                "department": "finance",
-                "category": "corporate-card",
-                "security_level": "internal",
-                "created_at": "2026-06-18T00:00:00+00:00",
-            },
-        )
-        metadata_store.upsert_chunk(
-            conn,
-            {
-                "id": "chunk-card-1",
-                "document_id": "doc:datasets/docs/finance/corporate-card-policy.md",
-                "chunk_index": 0,
-                "text": (
-                    "Lost corporate cards must be frozen immediately and "
-                    "reported to finance and the team lead."
-                ),
-                "token_count": 18,
-            },
-        )
-        conn.commit()
-    finally:
-        conn.close()
+def card_hit():
+    """검색 결과 1건(child payload). ingest 가 저장하는 형태를 모사."""
+    return {
+        "score": 0.91,
+        "payload": {
+            "chunk_id": "doc:reg::jo-30-hang-1",
+            "document_id": "doc:reg",
+            "source_path": "datasets/docs/regulations.md",
+            "title": "사내 규정집",
+            "type": "child",
+            "parent_id": "doc:reg::jo-30",
+            "jo": "제30조",
+            "path": "제3편 재무 > 제1장 경비 > 제30조",
+            "hang_no": 1,
+            "text": "분실 카드는 즉시 정지하고 재무팀에 보고한다.",
+            "parent_text": "제30조 (법인카드 분실)\n① 분실 카드는 즉시 정지하고 재무팀에 보고한다.",
+        },
+    }
 
 
 def test_ask_rag_gemini_cli_uses_existing_retrieval_and_gemini_generation(
-    tmp_path,
     monkeypatch,
     capsys,
 ):
     cli = ask_rag_gemini()
-    settings = make_settings(tmp_path)
-    seed_sqlite(settings.sqlite_path)
+    settings = make_settings()
     captured = {}
 
     monkeypatch.setattr(cli.Settings, "from_env", lambda: settings)
     monkeypatch.setattr(cli, "embed_text", lambda *args: [0.1, 0.2, 0.3])
-    monkeypatch.setattr(
-        cli,
-        "search_chunks",
-        lambda *args, **kwargs: [
-            {
-                "score": 0.91,
-                "payload": {
-                    "chunk_id": "chunk-card-1",
-                    "source_path": "datasets/docs/finance/corporate-card-policy.md",
-                    "title": "Corporate Card Policy",
-                },
-            }
-        ],
-    )
+
+    def fake_search_chunks(qdrant_url, collection, query_vector, top_k, **kwargs):
+        captured["metadata_filter"] = kwargs.get("metadata_filter")
+        captured["top_k"] = top_k
+        return [card_hit()]
+
+    monkeypatch.setattr(cli, "search_chunks", fake_search_chunks)
 
     def fake_chat_gemini_vertex(
         project,
@@ -114,17 +87,15 @@ def test_ask_rag_gemini_cli_uses_existing_retrieval_and_gemini_generation(
             "max_output_tokens": max_output_tokens,
             "thinking_budget": thinking_budget,
         }
-        return "Freeze the card and report it to finance and the team lead."
+        return "분실 즉시 카드를 정지하고 재무팀과 팀장에게 보고하세요. (제30조)"
 
     monkeypatch.setattr(cli, "chat_gemini_vertex", fake_chat_gemini_vertex)
 
     exit_code = cli.main(
         [
-            "How should a lost corporate card be handled?",
-            "--department",
-            "finance",
-            "--category",
-            "corporate-card",
+            "법인카드를 분실하면 어떻게 해야 하나요?",
+            "--filter",
+            "department=finance",
             "--top-k",
             "3",
             "--project",
@@ -142,20 +113,24 @@ def test_ask_rag_gemini_cli_uses_existing_retrieval_and_gemini_generation(
     captured_output = capsys.readouterr()
     assert exit_code == 0
     assert "Answer:" in captured_output.out
-    assert "Freeze the card" in captured_output.out
+    assert "재무팀과 팀장에게 보고" in captured_output.out
     assert "Sources:" in captured_output.out
     assert (
-        "- datasets/docs/finance/corporate-card-policy.md#chunk-card-1 (score: 0.91)"
+        "- datasets/docs/regulations.md#doc:reg::jo-30 (score: 0.91)"
     ) in captured_output.out
-    assert "[5/5] Generating answer with Gemini..." in captured_output.err
+    assert "[4/4] Generating answer with Gemini..." in captured_output.err
     assert "[timing] Gemini generation:" in captured_output.err
+
+    assert captured["metadata_filter"] == {"department": "finance"}
+    assert captured["top_k"] == 3
     assert captured["gemini"]["project"] == "project-123"
     assert captured["gemini"]["location"] == "us-central1"
     assert captured["gemini"]["model"] == "gemini-2.5-flash"
     assert captured["gemini"]["max_output_tokens"] == 160
     assert captured["gemini"]["thinking_budget"] == 0
-    assert "chunk-card-1" in captured["gemini"]["user_prompt"]
-    assert "Lost corporate cards" in captured["gemini"]["user_prompt"]
+    # parent(조) 전체 본문이 context 로 전달된다 (parent 확장).
+    assert "제30조 (법인카드 분실)" in captured["gemini"]["user_prompt"]
+    assert "doc:reg::jo-30" in captured["gemini"]["user_prompt"]
 
 
 def test_ask_rag_gemini_cli_requires_project(monkeypatch):
@@ -165,6 +140,6 @@ def test_ask_rag_gemini_cli_requires_project(monkeypatch):
     monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
 
     with pytest.raises(SystemExit) as exc_info:
-        cli.main(["How should a lost corporate card be handled?"])
+        cli.main(["법인카드를 분실하면 어떻게 해야 하나요?"])
 
     assert exc_info.value.code == 2
