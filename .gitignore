@@ -65,3 +65,4 @@ worktrees/
 
 *_results*.json
 *_results_*.json
+judge_results*.json
