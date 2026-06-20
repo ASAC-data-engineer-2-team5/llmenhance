@@ -127,9 +127,10 @@ def test_answer_question_passes_metadata_filter_to_search(monkeypatch):
 
     monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
 
-    def fake_search_chunks(qdrant_url, collection, query_vector, top_k, **kwargs):
+    def fake_search_chunks(qdrant_url, collection, dense, sparse, top_k, **kwargs):
         captured["metadata_filter"] = kwargs.get("metadata_filter")
         captured["top_k"] = top_k
+        captured["sparse"] = sparse
         return [child_hit()]
 
     monkeypatch.setattr(pipeline, "search_chunks", fake_search_chunks)
@@ -144,6 +145,8 @@ def test_answer_question_passes_metadata_filter_to_search(monkeypatch):
 
     assert captured["metadata_filter"] == {"jang": "제2장 휴가", "department": "hr"}
     assert captured["top_k"] == 5
+    # 질문도 sparse(BM25) 벡터로 변환돼 함께 넘어간다.
+    assert set(captured["sparse"]) == {"indices", "values"}
 
 
 def test_answer_question_empty_filter_becomes_none(monkeypatch):
@@ -152,7 +155,7 @@ def test_answer_question_empty_filter_becomes_none(monkeypatch):
 
     monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
 
-    def fake_search_chunks(qdrant_url, collection, query_vector, top_k, **kwargs):
+    def fake_search_chunks(qdrant_url, collection, dense, sparse, top_k, **kwargs):
         captured["metadata_filter"] = kwargs.get("metadata_filter")
         return [child_hit()]
 

@@ -1,5 +1,6 @@
 google-genai
 httpx
+kiwipiepy
 pytest
 python-dotenv
 qdrant-client

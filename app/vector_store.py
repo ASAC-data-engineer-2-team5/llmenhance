@@ -5,6 +5,10 @@ from qdrant_client import QdrantClient, models
 REQUIRED_PAYLOAD_FIELDS = ("chunk_id", "document_id", "source_path", "title")
 MAX_QDRANT_UNSIGNED_INTEGER_ID = 2**64 - 1
 
+# named vector 이름 — dense(bge-m3)와 sparse(BM25)를 한 컬렉션에 함께 둔다.
+DENSE_VECTOR_NAME = "dense"
+SPARSE_VECTOR_NAME = "bm25"
+
 
 def ensure_collection(qdrant_url: str, collection_name: str, vector_size: int) -> None:
     if vector_size <= 0:
@@ -16,10 +20,16 @@ def ensure_collection(qdrant_url: str, collection_name: str, vector_size: int) -
 
     client.create_collection(
         collection_name=collection_name,
-        vectors_config=models.VectorParams(
-            size=vector_size,
-            distance=models.Distance.COSINE,
-        ),
+        vectors_config={
+            DENSE_VECTOR_NAME: models.VectorParams(
+                size=vector_size,
+                distance=models.Distance.COSINE,
+            )
+        },
+        sparse_vectors_config={
+            # IDF modifier 를 켜면 BM25 의 IDF 항을 Qdrant 가 컬렉션 통계로 계산한다.
+            SPARSE_VECTOR_NAME: models.SparseVectorParams(modifier=models.Modifier.IDF)
+        },
     )
 
 
@@ -41,10 +51,17 @@ def upsert_chunk_vectors(
     qdrant_points = []
     for point in points:
         _validate_point(point)
+        sparse = point["sparse"]
         qdrant_points.append(
             models.PointStruct(
                 id=point["id"],
-                vector=point["vector"],
+                vector={
+                    DENSE_VECTOR_NAME: point["dense"],
+                    SPARSE_VECTOR_NAME: models.SparseVector(
+                        indices=sparse["indices"],
+                        values=sparse["values"],
+                    ),
+                },
                 payload=point["payload"],
             )
         )
@@ -55,30 +72,46 @@ def upsert_chunk_vectors(
 def search_chunks(
     qdrant_url: str,
     collection_name: str,
-    query_vector: list[float],
+    dense_vector: list[float],
+    sparse_vector: dict[str, list],
     top_k: int,
     metadata_filter: dict[str, str] | None = None,
 ) -> list[dict]:
+    """dense(bge-m3) + sparse(BM25) 하이브리드 검색을 RRF 로 결합해 반환한다."""
     if top_k <= 0:
         raise ValueError("top_k must be greater than 0")
-    if not query_vector:
-        raise ValueError("query_vector must not be empty")
+    if not dense_vector:
+        raise ValueError("dense_vector must not be empty")
 
-    query_filter = None
-    if metadata_filter:
-        query_filter = models.Filter(
-            must=[
-                models.FieldCondition(key=key, match=models.MatchValue(value=value))
-                for key, value in metadata_filter.items()
-            ]
+    query_filter = _build_filter(metadata_filter)
+
+    prefetch = [
+        models.Prefetch(
+            query=dense_vector,
+            using=DENSE_VECTOR_NAME,
+            limit=top_k,
+            filter=query_filter,
+        )
+    ]
+    if sparse_vector and sparse_vector.get("indices"):
+        prefetch.append(
+            models.Prefetch(
+                query=models.SparseVector(
+                    indices=sparse_vector["indices"],
+                    values=sparse_vector["values"],
+                ),
+                using=SPARSE_VECTOR_NAME,
+                limit=top_k,
+                filter=query_filter,
+            )
         )
 
     client = QdrantClient(url=qdrant_url)
     response = client.query_points(
         collection_name=collection_name,
-        query=query_vector,
+        prefetch=prefetch,
+        query=models.FusionQuery(fusion=models.Fusion.RRF),
         limit=top_k,
-        query_filter=query_filter,
         with_payload=True,
         with_vectors=False,
     )
@@ -93,12 +126,32 @@ def search_chunks(
     ]
 
 
+def _build_filter(metadata_filter: dict[str, str] | None):
+    if not metadata_filter:
+        return None
+    return models.Filter(
+        must=[
+            models.FieldCondition(key=key, match=models.MatchValue(value=value))
+            for key, value in metadata_filter.items()
+        ]
+    )
+
+
 def _validate_point(point: dict) -> None:
-    for field_name in ("id", "vector", "payload"):
+    for field_name in ("id", "dense", "sparse", "payload"):
         if field_name not in point:
             raise ValueError(f"point is missing required field: {field_name}")
 
     _validate_point_id(point["id"])
+
+    if not point["dense"]:
+        raise ValueError("point dense vector must not be empty")
+
+    sparse = point["sparse"]
+    if not isinstance(sparse, dict) or "indices" not in sparse or "values" not in sparse:
+        raise ValueError("point sparse must be a dict with 'indices' and 'values'")
+    if len(sparse["indices"]) != len(sparse["values"]):
+        raise ValueError("point sparse 'indices' and 'values' must be the same length")
 
     payload = point["payload"]
     if not isinstance(payload, dict):

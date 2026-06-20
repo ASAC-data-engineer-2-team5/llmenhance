@@ -17,6 +17,7 @@ from app.rag_pipeline import (
     SYSTEM_PROMPT,
     _build_context,
 )
+from app.sparse import text_to_sparse
 from app.vector_store import search_chunks
 from scripts.ask_rag import _parse_filters
 
@@ -141,6 +142,7 @@ def answer_question_with_gemini(
             normalized_question,
         ),
     )
+    query_sparse = text_to_sparse(normalized_question)
 
     _report_progress(progress, 1)
     search_results = _run_timed(
@@ -150,6 +152,7 @@ def answer_question_with_gemini(
             settings.qdrant_url,
             settings.qdrant_collection,
             query_vector,
+            query_sparse,
             top_k,
             metadata_filter=metadata_filter or None,
         ),

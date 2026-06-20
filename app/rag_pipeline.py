@@ -8,6 +8,7 @@ from typing import Any, TypeVar
 from app.config import Settings
 from app.embeddings import embed_text
 from app.qwen_client import chat_qwen
+from app.sparse import text_to_sparse
 from app.vector_store import search_chunks
 
 FALLBACK_ANSWER = "문서에서 확인되지 않습니다"
@@ -80,6 +81,7 @@ def answer_question(
             normalized_question,
         ),
     )
+    query_sparse = text_to_sparse(normalized_question)
 
     _report_progress(progress, 1)
     search_results = _run_timed(
@@ -89,6 +91,7 @@ def answer_question(
             active_settings.qdrant_url,
             active_settings.qdrant_collection,
             query_vector,
+            query_sparse,
             top_k,
             metadata_filter=metadata_filter or None,
         ),

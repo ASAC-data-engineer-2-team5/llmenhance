@@ -60,7 +60,7 @@ def test_ask_rag_gemini_cli_uses_existing_retrieval_and_gemini_generation(
     monkeypatch.setattr(cli.Settings, "from_env", lambda: settings)
     monkeypatch.setattr(cli, "embed_text", lambda *args: [0.1, 0.2, 0.3])
 
-    def fake_search_chunks(qdrant_url, collection, query_vector, top_k, **kwargs):
+    def fake_search_chunks(qdrant_url, collection, dense, sparse, top_k, **kwargs):
         captured["metadata_filter"] = kwargs.get("metadata_filter")
         captured["top_k"] = top_k
         return [card_hit()]

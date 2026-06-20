@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.chunking import chunk_text
 from app.config import Settings
 from app.embeddings import embed_text
+from app.sparse import text_to_sparse
 from app.vector_store import (
     delete_collection_if_exists,
     ensure_collection,
@@ -67,7 +68,8 @@ def ingest_directory(
             parent_id = chunk.get("parent_id", chunk_id)
             parent_text = parent_text_by_id.get(parent_id, chunk["text"])
 
-            vector = embed_text(settings.ollama_base_url, settings.embedding_model, chunk["text"])
+            dense = embed_text(settings.ollama_base_url, settings.embedding_model, chunk["text"])
+            sparse = text_to_sparse(chunk["text"])
             payload = {
                 **chunk["metadata"],
                 "chunk_id": chunk_id,
@@ -82,7 +84,8 @@ def ingest_directory(
             points.append(
                 {
                     "id": str(uuid5(NAMESPACE_URL, f"{document_id}::{chunk_id}")),
-                    "vector": vector,
+                    "dense": dense,
+                    "sparse": sparse,
                     "payload": payload,
                 }
             )
@@ -94,7 +97,7 @@ def ingest_directory(
         ensure_collection(
             settings.qdrant_url,
             settings.qdrant_collection,
-            vector_size=len(points[0]["vector"]),
+            vector_size=len(points[0]["dense"]),
         )
         upsert_chunk_vectors(settings.qdrant_url, settings.qdrant_collection, points)
 

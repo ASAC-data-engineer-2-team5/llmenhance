@@ -100,8 +100,13 @@ def test_ingest_directory_embeds_children_and_stores_structure_payload(
         calls["embed_text"].append((base_url, model, text))
         return [float(len(calls["embed_text"])), 0.2, 0.3]
 
+    def fake_text_to_sparse(text):
+        calls.setdefault("sparse", []).append(text)
+        return {"indices": [len(text)], "values": [1.0]}
+
     monkeypatch.setattr(ingest, "chunk_text", fake_chunk_text)
     monkeypatch.setattr(ingest, "embed_text", fake_embed_text)
+    monkeypatch.setattr(ingest, "text_to_sparse", fake_text_to_sparse)
     monkeypatch.setattr(
         ingest,
         "ensure_collection",
@@ -138,6 +143,9 @@ def test_ingest_directory_embeds_children_and_stores_structure_payload(
 
     first = qdrant_points[0]
     UUID(first["id"])
+    # 포인트는 dense(bge-m3) + sparse(BM25) 두 벡터를 함께 싣는다.
+    assert first["dense"] == [1.0, 0.2, 0.3]
+    assert first["sparse"] == {"indices": [len("첫째 항 본문")], "values": [1.0]}
     payload = first["payload"]
     # 출처 표기에 필요한 필수 payload 필드. title 은 파일명, source_path 는 파일 경로.
     assert payload["source_path"].endswith("datasets/docs/regulations.md")
@@ -191,6 +199,9 @@ def test_ingest_directory_reset_clears_qdrant_before_reindex(tmp_path, monkeypat
         ingest,
         "embed_text",
         lambda base_url, model, text: events.append(("embed_text", text)) or [1.0, 0.2, 0.3],
+    )
+    monkeypatch.setattr(
+        ingest, "text_to_sparse", lambda text: {"indices": [1], "values": [1.0]}
     )
     monkeypatch.setattr(
         ingest,
