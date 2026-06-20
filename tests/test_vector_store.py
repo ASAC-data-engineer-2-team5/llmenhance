@@ -30,14 +30,14 @@ class FakePointStruct:
 
 
 @dataclass
-class FakeMatchAny:
-    any: list[str]
+class FakeMatchValue:
+    value: str
 
 
 @dataclass
 class FakeFieldCondition:
     key: str
-    match: FakeMatchAny
+    match: FakeMatchValue
 
 
 @dataclass
@@ -53,7 +53,7 @@ class FakeModels:
     Distance = FakeDistance
     FieldCondition = FakeFieldCondition
     Filter = FakeFilter
-    MatchAny = FakeMatchAny
+    MatchValue = FakeMatchValue
     PointStruct = FakePointStruct
     VectorParams = FakeVectorParams
 
@@ -297,7 +297,7 @@ def test_search_chunks_passes_top_k_as_limit(monkeypatch):
     assert clients[0].query_points_calls[0]["limit"] == 7
 
 
-def test_search_chunks_without_candidates_uses_no_filter(monkeypatch):
+def test_search_chunks_with_metadata_filter_matches_structure_path_fields(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store)
 
@@ -306,49 +306,46 @@ def test_search_chunks_without_candidates_uses_no_filter(monkeypatch):
         "chunks",
         [0.1, 0.2],
         top_k=3,
-        candidate_chunk_ids=None,
-    )
-
-    assert clients[0].query_points_calls[0]["query_filter"] is None
-
-
-def test_search_chunks_with_candidates_filters_by_chunk_id(monkeypatch):
-    store = vector_store()
-    clients = patch_qdrant(monkeypatch, store)
-
-    store.search_chunks(
-        "http://qdrant:6333",
-        "chunks",
-        [0.1, 0.2],
-        top_k=3,
-        candidate_chunk_ids=["chunk-1", "chunk-2"],
+        metadata_filter={"jang": "제2장 휴가", "jo": "제5조"},
     )
 
     query_filter = clients[0].query_points_calls[0]["query_filter"]
     assert query_filter == FakeFilter(
         must=[
-            FakeFieldCondition(
-                key="chunk_id",
-                match=FakeMatchAny(any=["chunk-1", "chunk-2"]),
-            )
+            FakeFieldCondition(key="jang", match=FakeMatchValue(value="제2장 휴가")),
+            FakeFieldCondition(key="jo", match=FakeMatchValue(value="제5조")),
         ]
     )
 
 
-def test_search_chunks_empty_candidates_returns_empty_without_querying(monkeypatch):
+def test_search_chunks_without_metadata_filter_uses_no_filter(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store)
 
-    results = store.search_chunks(
+    store.search_chunks(
         "http://qdrant:6333",
         "chunks",
         [0.1, 0.2],
         top_k=3,
-        candidate_chunk_ids=[],
+        metadata_filter=None,
     )
 
-    assert results == []
-    assert clients == []
+    assert clients[0].query_points_calls[0]["query_filter"] is None
+
+
+def test_search_chunks_empty_metadata_filter_dict_uses_no_filter(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        top_k=3,
+        metadata_filter={},
+    )
+
+    assert clients[0].query_points_calls[0]["query_filter"] is None
 
 
 def test_search_chunks_returns_result_dicts(monkeypatch):

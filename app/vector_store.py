@@ -57,23 +57,19 @@ def search_chunks(
     collection_name: str,
     query_vector: list[float],
     top_k: int,
-    candidate_chunk_ids: list[str] | None = None,
+    metadata_filter: dict[str, str] | None = None,
 ) -> list[dict]:
     if top_k <= 0:
         raise ValueError("top_k must be greater than 0")
     if not query_vector:
         raise ValueError("query_vector must not be empty")
-    if candidate_chunk_ids == []:
-        return []
 
     query_filter = None
-    if candidate_chunk_ids is not None:
+    if metadata_filter:
         query_filter = models.Filter(
             must=[
-                models.FieldCondition(
-                    key="chunk_id",
-                    match=models.MatchAny(any=candidate_chunk_ids),
-                )
+                models.FieldCondition(key=key, match=models.MatchValue(value=value))
+                for key, value in metadata_filter.items()
             ]
         )
 
