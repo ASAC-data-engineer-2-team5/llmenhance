@@ -164,8 +164,19 @@ def evaluate_one(item):
     vram_after = get_vram_usage()
 
     answer = result["answer"]
-    tokens = max(len(answer) // 2, 1)
-    tps = round(tokens / elapsed, 1) if elapsed > 0 else 0
+    # 실제 토큰 수 사용 (Ollama의 eval_count 기반)
+    eval_count = result.get("eval_count")
+    eval_duration_ns = result.get("eval_duration_ns")
+
+    if eval_count and eval_duration_ns:
+        tokens = eval_count
+        tps = round(eval_count / (eval_duration_ns / 1e9), 1)
+        token_source = "ollama_eval_count"
+    else:
+        # rag_pipeline이 eval_count를 못 받은 경우 대비 fallback
+        tokens = max(len(answer) // 2, 1)
+        tps = round(tokens / elapsed, 1) if elapsed > 0 else 0
+        token_source = "estimated(len/2)"
 
     # ── 동일 질문으로 Gemini/Claude 실제 호출 ───────────
     gemini_real = call_gemini_real(item["question"])
@@ -182,6 +193,7 @@ def evaluate_one(item):
         "latency_sec": elapsed,
         "tokens_per_sec": tps,
         "tokens": tokens,
+        "token_source": token_source,   # 실측인지 추정인지
         # 비용 (실호출 기반)
         "cost_local": 0.0,
         "gemini": gemini_real,   # {"input_tokens","output_tokens","cost"} 또는 None
@@ -213,7 +225,7 @@ def run_eval():
         r = evaluate_one(item)
         all_results.append(r)
 
-        print(f"  latency: {r['latency_sec']}초 | tps: {r['tokens_per_sec']}")
+        print(f"  latency: {r['latency_sec']}초 | tps: {r['tokens_per_sec']} ({r['token_source']})")
         if r["gemini"]:
             g = r["gemini"]
             print(f"  Gemini 실비용: ${g['cost']} (in:{g['input_tokens']} out:{g['output_tokens']})")
@@ -251,12 +263,13 @@ def run_eval():
     print("최종 요약")
     print(f"{'='*60}")
     print(f"평균 latency:     {avg_lat:.2f}초")
-    print(f"평균 tokens/sec:  {avg_tps:.1f}")
+    print(f"평균 tokens/sec:  {avg_tps:.1f} (기준: {all_results[0]['token_source']})")
     print(f"비용 (로컬):       $0.000000")
 
     summary = {
         "avg_latency_sec":    round(avg_lat, 2),
         "avg_tokens_per_sec": round(avg_tps, 1),
+        "token_source": all_results[0]["token_source"],
         "cost_local":         0.0,
         "avg_cpu_percent":    round(avg_cpu, 1),
         "avg_ram_mb":         round(avg_ram, 1),
