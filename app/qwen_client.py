@@ -24,6 +24,7 @@ def chat_qwen(
         "model": model,
         "stream": False,
         "think": False,
+        "keep_alive": 0,
         "messages": [
             {"role": "system", "content": _system_content(system_prompt)},
             {"role": "user", "content": user_prompt},
