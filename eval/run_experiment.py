@@ -283,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
         eval_questions = eval_questions[: args.questions]
 
     judge_client = None
-    if not args.no_judge and os.environ.get("AWS_ACCESS_KEY_ID") or _has_iam_role():
+    if not args.no_judge and _has_aws_credentials():
         judge_client = make_judge_client(base_settings.bedrock_region)
 
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -317,13 +317,10 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _has_iam_role() -> bool:
+def _has_aws_credentials() -> bool:
+    """~/.aws/credentials, 환경변수, IAM Role 중 하나라도 유효하면 True."""
     try:
-        import urllib.request
-        urllib.request.urlopen(
-            "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-            timeout=1,
-        )
+        boto3.client("sts").get_caller_identity()
         return True
     except Exception:
         return False
