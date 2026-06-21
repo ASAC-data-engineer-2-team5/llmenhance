@@ -117,7 +117,7 @@ def answer_question(
             return _fallback_result()
 
         _report_progress(progress, 4)
-        answer = _run_timed(
+        chat_result = _run_timed(
             TIMING_LABELS[4],
             timing,
             lambda: chat_qwen(
@@ -128,8 +128,9 @@ def answer_question(
                 active_settings.temperature,
                 active_settings.num_ctx,
                 active_settings.num_predict,
-            ).strip(),
+            ),
         )
+        answer = chat_result["content"].strip()
 
         if not answer:
             return _fallback_result()
@@ -144,6 +145,8 @@ def answer_question(
                 }
                 for chunk in retrieved_chunks
             ],
+            "eval_count": chat_result.get("eval_count"),
+            "eval_duration_ns": chat_result.get("eval_duration_ns"),
         }
     finally:
         conn.close()

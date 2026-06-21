@@ -18,7 +18,7 @@ def chat_qwen(
     temperature: float,
     num_ctx: int,
     num_predict: int,
-) -> str:
+) -> dict[str, Any]:
     path = "/api/chat"
     request_json = {
         "model": model,
@@ -42,7 +42,7 @@ def chat_qwen(
             timeout=TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        return _parse_chat_content(response.json())
+        return _parse_chat_response(response.json())
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
         raise RuntimeError(
             f"Ollama chat request failed for model {model!r} at {path}: {exc}"
@@ -57,8 +57,19 @@ def _system_content(system_prompt: str) -> str:
     return f"{system_prompt}\n\n{PROMPT_INJECTION_GUARD}"
 
 
-def _parse_chat_content(payload: Any) -> str:
+def _parse_chat_response(payload: Any) -> dict[str, Any]:
     content = payload["message"]["content"]
     if not isinstance(content, str):
         raise ValueError("chat response message content must be a string")
-    return content
+
+    # Ollama가 반환하는 실제 토큰/속도 메타데이터
+    # eval_count: 생성된 토큰 수
+    # eval_duration: 생성에 걸린 시간 (나노초)
+    # prompt_eval_count: 입력(프롬프트) 토큰 수
+    return {
+        "content": content,
+        "eval_count": payload.get("eval_count"),
+        "eval_duration_ns": payload.get("eval_duration"),
+        "prompt_eval_count": payload.get("prompt_eval_count"),
+        "total_duration_ns": payload.get("total_duration"),
+    }
