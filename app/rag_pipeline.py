@@ -37,6 +37,8 @@ canonical_question은 original_question을 문서 기준으로 답하기 쉽게 
 답변은 canonical_question을 기준으로 작성하되, 표현은 original_question의 사용자 상황에 맞춰 자연스럽게 작성하라.
 context의 기준과 canonical_question의 사용자 조건을 비교해 충족 여부, 기한, 절차, 요건을 답할 수 있다.
 문서에 없는 승인 재량, 예외, 외부 사실은 만들지 말라.
+사용자가 N일 뒤, 내일, 당일 같은 상대 기간을 제시하면 새 달력 날짜를 계산하지 말고 context의 최소/최대 기간 기준과만 비교하라.
+문서에 승인 또는 거부 처리 결과가 명시되지 않으면 "불가능합니다"나 "거부됩니다" 대신 "문서 기준상 충족하지 않습니다"처럼 표현하라.
 context에서 확인할 수 없는 내용은 추측하지 말고 "{FALLBACK_ANSWER}"라고 답하라.
 답변은 간결하게 작성하고, 근거가 된 조(예: 제5조)를 함께 밝혀라."""
 
@@ -261,8 +263,6 @@ def _format_context_parent(index: int, parent: RetrievedParent) -> str:
     return f"""[source {index}]
 source_path: {parent.source_path}
 chunk_id: {parent.chunk_id}
-title: {parent.title}
-path: {parent.path}
-score: {parent.score}
+jo: {parent.jo}
 content:
 {parent.text}"""

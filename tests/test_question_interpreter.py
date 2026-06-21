@@ -19,6 +19,18 @@ def test_interprets_eligibility_question_with_lead_time():
     assert "충족" in result.canonical_question
 
 
+def test_interprets_annual_leave_eligibility_as_deadline_check():
+    result = interpret_question("2일 뒤에 연차 신청하려고 하는데 될까요?")
+
+    assert "연차를 2일 뒤에 사용" in result.canonical_question
+    assert "신청 기한" in result.canonical_question
+    assert "최소 신청 기한" in result.canonical_question
+    assert "새 날짜를 계산하지 말라" in result.canonical_question
+    assert "거부" in result.canonical_question
+    assert "사용일까지 남은 기간은 2일" in result.canonical_question
+    assert "최소 M영업일 전" in result.canonical_question
+
+
 def test_interprets_deadline_lookup_question():
     result = interpret_question("연차 신청은 며칠 전까지 해야 하나요?")
 

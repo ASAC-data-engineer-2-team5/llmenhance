@@ -93,6 +93,21 @@ def _build_canonical_question(
         return original_question
 
     if intent == ELIGIBILITY_CHECK:
+        if _is_annual_leave_deadline_check(original_question, conditions):
+            lead_time = conditions["lead_time"]
+            return (
+                f"원 질문: {original_question}\n"
+                f"해석된 질문: 사용자는 연차를 {lead_time}에 사용하려고 한다. "
+                "문서에 명시된 연차 신청 기한 기준을 찾고, 이 조건이 기준을 충족하는지 판단하라.\n"
+                f"사용자 조건: 사용 예정 시점={lead_time}\n"
+                f"비교 방식: 사용일까지 남은 기간은 {_lead_time_to_days_text(lead_time)}이다. "
+                "context에 '최소 M영업일 전' 또는 '최소 M일 전' 기준이 있으면, "
+                "사용자 조건과 문서 기준 M을 비교하라. 사용자 조건이 M보다 짧으면 기준을 충족하지 않는다고 답하라.\n"
+                "문서 기준상 충족하지 않으면 필요한 최소 신청 기한을 답하라. "
+                "새 날짜를 계산하지 말라. "
+                "문서에 없는 승인, 거부, 예외, 추측은 만들지 말라."
+            )
+
         condition_text = _format_conditions(conditions)
         return (
             f"원 질문: {original_question}\n"
@@ -124,6 +139,17 @@ def _format_conditions(conditions: dict[str, str]) -> str:
     if not conditions:
         return "명시적으로 추출된 조건 없음"
     return ", ".join(f"{key}={value}" for key, value in conditions.items())
+
+
+def _is_annual_leave_deadline_check(question: str, conditions: dict[str, str]) -> bool:
+    return "연차" in question and "lead_time" in conditions
+
+
+def _lead_time_to_days_text(lead_time: str) -> str:
+    day_count = re.match(r"(\d+)일", lead_time)
+    if day_count:
+        return f"{day_count.group(1)}일"
+    return lead_time
 
 
 def _contains_any(text: str, markers: tuple[str, ...]) -> bool:

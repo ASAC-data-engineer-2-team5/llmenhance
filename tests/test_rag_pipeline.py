@@ -205,6 +205,8 @@ def test_answer_question_expands_to_parent_and_returns_sources(monkeypatch):
     # parent(조) 전체 본문이 context 로 전달된다 (parent 확장).
     assert "제1조 (연차)" in captured["user_prompt"]
     assert "doc:reg::jo-1" in captured["user_prompt"]
+    assert "\npath:" not in captured["user_prompt"]
+    assert "\nscore:" not in captured["user_prompt"]
     assert "문서에서 확인되지 않습니다" in captured["system_prompt"]
 
 
@@ -255,6 +257,8 @@ def test_system_prompt_instructs_qwen_to_use_canonical_question():
     assert "canonical_question" in pipeline.SYSTEM_PROMPT
     assert "original_question" in pipeline.SYSTEM_PROMPT
     assert "문서에 없는 승인 재량" in pipeline.SYSTEM_PROMPT
+    assert "새 달력 날짜" in pipeline.SYSTEM_PROMPT
+    assert "문서 기준상 충족하지 않습니다" in pipeline.SYSTEM_PROMPT
 
 
 def test_answer_question_dedupes_children_sharing_a_parent(monkeypatch):
