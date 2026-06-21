@@ -720,7 +720,7 @@ set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y ca-certificates curl git docker.io docker-compose-plugin
+apt-get install -y ca-certificates curl git docker.io docker-compose-v2 python3
 systemctl enable --now docker
 snap install amazon-ssm-agent --classic || true
 systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || systemctl enable --now amazon-ssm-agent || true
