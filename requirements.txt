@@ -5,7 +5,7 @@ python-dotenv
 qdrant-client
 pyyaml
 
-ragas
+ragas==0.1.21
 langchain-aws
 datasets
 boto3
