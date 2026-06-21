@@ -86,6 +86,7 @@ def answer_question(
         raise TypeError("metadata_filter must be a dict or None")
 
     interpreted_question = interpret_question(normalized_question)
+    retrieval_question = interpreted_question.retrieval_question
     active_settings = settings or Settings.from_env()
 
     _report_progress(progress, 0)
@@ -95,13 +96,13 @@ def answer_question(
         lambda: embed_text(
             active_settings.ollama_base_url,
             active_settings.embedding_model,
-            normalized_question,
+            retrieval_question,
         ),
     )
     query_sparse = _run_timed(
         TIMING_LABELS[1],
         timing,
-        lambda: text_to_sparse(normalized_question),
+        lambda: text_to_sparse(retrieval_question),
     )
 
     _report_progress(progress, 1)

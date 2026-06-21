@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.config import Settings
 from app.embeddings import embed_text
 from app.gemini_client import chat_gemini_vertex
+from app.question_interpreter import interpret_question
 from app.rag_pipeline import (
     FALLBACK_ANSWER,
     SYSTEM_PROMPT,
@@ -137,6 +138,9 @@ def answer_question_with_gemini(
     if metadata_filter is not None and not isinstance(metadata_filter, dict):
         raise TypeError("metadata_filter must be a dict or None")
 
+    interpreted_question = interpret_question(normalized_question)
+    retrieval_question = interpreted_question.retrieval_question
+
     _report_progress(progress, 0)
     query_vector = _run_timed(
         TIMING_LABELS[0],
@@ -144,10 +148,10 @@ def answer_question_with_gemini(
         lambda: embed_text(
             settings.ollama_base_url,
             settings.embedding_model,
-            normalized_question,
+            retrieval_question,
         ),
     )
-    query_sparse = text_to_sparse(normalized_question)
+    query_sparse = text_to_sparse(retrieval_question)
 
     _report_progress(progress, 1)
     search_results = _run_timed(
@@ -169,7 +173,7 @@ def answer_question_with_gemini(
     parents, user_prompt = _run_timed(
         TIMING_LABELS[2],
         timing,
-        lambda: _build_context(normalized_question, search_results, top_k),
+        lambda: _build_context(interpreted_question, search_results, top_k),
     )
     if not parents:
         return _fallback_result()

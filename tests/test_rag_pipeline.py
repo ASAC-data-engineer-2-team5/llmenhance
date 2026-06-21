@@ -234,7 +234,7 @@ def test_answer_question_passes_original_and_canonical_question_to_qwen(monkeypa
     assert "충족" in captured["user_prompt"]
 
 
-def test_answer_question_keeps_original_question_for_retrieval(monkeypatch):
+def test_answer_question_keeps_original_question_for_general_retrieval(monkeypatch):
     pipeline = rag_pipeline()
     captured = {}
 
@@ -246,9 +246,32 @@ def test_answer_question_keeps_original_question_for_retrieval(monkeypatch):
     monkeypatch.setattr(pipeline, "search_chunks", lambda *args, **kwargs: [child_hit()])
     monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: "답변")
 
-    pipeline.answer_question("2일 뒤에 연차 신청하려고 하는데 될까요?", 5, settings=make_settings())
+    pipeline.answer_question("회사의 휴가 규정을 알려주세요.", 5, settings=make_settings())
 
-    assert captured["embedded_text"] == "2일 뒤에 연차 신청하려고 하는데 될까요?"
+    assert captured["embedded_text"] == "회사의 휴가 규정을 알려주세요."
+
+
+def test_answer_question_uses_lightly_normalized_retrieval_question(monkeypatch):
+    pipeline = rag_pipeline()
+    captured = {}
+
+    def fake_embed_text(base_url, model, text):
+        captured["embedded_text"] = text
+        return [0.1, 0.2, 0.3]
+
+    def fake_text_to_sparse(text):
+        captured["sparse_text"] = text
+        return {"indices": [1], "values": [1.0]}
+
+    monkeypatch.setattr(pipeline, "embed_text", fake_embed_text)
+    monkeypatch.setattr(pipeline, "text_to_sparse", fake_text_to_sparse)
+    monkeypatch.setattr(pipeline, "search_chunks", lambda *args, **kwargs: [child_hit()])
+    monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: "답변")
+
+    pipeline.answer_question("이틀 뒤에 연차신청해도될까요?", 5, settings=make_settings())
+
+    assert captured["embedded_text"] == "연차 유급휴가 신청 기한 최소 영업일 전"
+    assert captured["sparse_text"] == "연차 유급휴가 신청 기한 최소 영업일 전"
 
 
 def test_system_prompt_instructs_qwen_to_use_canonical_question():
