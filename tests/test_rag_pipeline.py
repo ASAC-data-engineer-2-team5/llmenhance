@@ -143,7 +143,7 @@ def test_answer_question_passes_metadata_filter_to_search(monkeypatch):
     )
 
     assert captured["metadata_filter"] == {"jang": "제2장 휴가", "department": "hr"}
-    assert captured["top_k"] == 5
+    assert captured["top_k"] == 5 * pipeline.PARENT_EXPANSION_FETCH_MULTIPLIER
     # 질문도 sparse(BM25) 벡터로 변환돼 함께 넘어간다.
     assert set(captured["sparse"]) == {"indices", "values"}
 
@@ -231,6 +231,44 @@ def test_answer_question_dedupes_children_sharing_a_parent(monkeypatch):
     result = pipeline.answer_question("질문", 5, settings=make_settings())
 
     # 같은 조(jo-1)는 한 번만, 최고 점수로 출처에 남는다.
+    assert result["sources"] == [
+        {"source_path": "datasets/docs/regulations.md", "chunk_id": "doc:reg::jo-1", "score": 0.95},
+        {"source_path": "datasets/docs/regulations.md", "chunk_id": "doc:reg::jo-2", "score": 0.70},
+    ]
+
+
+def test_answer_question_overfetches_children_before_parent_deduping(monkeypatch):
+    pipeline = rag_pipeline()
+    captured = {}
+
+    monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
+
+    def fake_search_chunks(qdrant_url, collection, dense, sparse, top_k, **kwargs):
+        captured["search_top_k"] = top_k
+        return [
+            child_hit(score=0.95, parent_id="doc:reg::jo-1"),
+            child_hit(score=0.91, parent_id="doc:reg::jo-1"),
+            child_hit(score=0.88, parent_id="doc:reg::jo-1"),
+            child_hit(
+                score=0.70,
+                parent_id="doc:reg::jo-2",
+                parent_text="제2조 (재택근무)\n① 재택근무는 승인이 필요하다.",
+                jo="제2조",
+            ),
+            child_hit(
+                score=0.60,
+                parent_id="doc:reg::jo-3",
+                parent_text="제3조 (출장)\n① 출장 정산은 기한 내 처리한다.",
+                jo="제3조",
+            ),
+        ]
+
+    monkeypatch.setattr(pipeline, "search_chunks", fake_search_chunks)
+    monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: "답변")
+
+    result = pipeline.answer_question("질문", 2, settings=make_settings())
+
+    assert captured["search_top_k"] == pipeline._search_top_k_for_parent_expansion(2)
     assert result["sources"] == [
         {"source_path": "datasets/docs/regulations.md", "chunk_id": "doc:reg::jo-1", "score": 0.95},
         {"source_path": "datasets/docs/regulations.md", "chunk_id": "doc:reg::jo-2", "score": 0.70},

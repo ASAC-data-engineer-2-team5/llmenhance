@@ -16,6 +16,7 @@ from app.rag_pipeline import (
     FALLBACK_ANSWER,
     SYSTEM_PROMPT,
     _build_context,
+    _search_top_k_for_parent_expansion,
 )
 from app.sparse import text_to_sparse
 from app.vector_store import search_chunks
@@ -153,7 +154,7 @@ def answer_question_with_gemini(
             settings.qdrant_collection,
             query_vector,
             query_sparse,
-            top_k,
+            _search_top_k_for_parent_expansion(top_k),
             metadata_filter=metadata_filter or None,
         ),
     )

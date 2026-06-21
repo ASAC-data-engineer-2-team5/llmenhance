@@ -24,6 +24,7 @@ TIMING_LABELS = (
     "Parent expansion",
     "Qwen generation",
 )
+PARENT_EXPANSION_FETCH_MULTIPLIER = 4
 T = TypeVar("T")
 
 SYSTEM_PROMPT = f"""너는 사내 규정 문서에 근거해서만 답변하는 QA 어시스턴트다.
@@ -92,7 +93,7 @@ def answer_question(
             active_settings.qdrant_collection,
             query_vector,
             query_sparse,
-            top_k,
+            _search_top_k_for_parent_expansion(top_k),
             metadata_filter=metadata_filter or None,
         ),
     )
@@ -156,6 +157,10 @@ def _run_timed(
         return action()
     finally:
         timing(label, perf_counter() - started)
+
+
+def _search_top_k_for_parent_expansion(top_k: int) -> int:
+    return top_k * PARENT_EXPANSION_FETCH_MULTIPLIER
 
 
 def _fallback_result() -> dict[str, Any]:

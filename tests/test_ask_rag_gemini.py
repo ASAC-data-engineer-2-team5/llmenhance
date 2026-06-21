@@ -120,7 +120,7 @@ def test_ask_rag_gemini_cli_uses_existing_retrieval_and_gemini_generation(
     assert "[timing] Gemini generation:" in captured_output.err
 
     assert captured["metadata_filter"] == {"department": "finance"}
-    assert captured["top_k"] == 3
+    assert captured["top_k"] == cli._search_top_k_for_parent_expansion(3)
     assert captured["gemini"]["project"] == "project-123"
     assert captured["gemini"]["location"] == "us-central1"
     assert captured["gemini"]["model"] == "gemini-2.5-flash"
