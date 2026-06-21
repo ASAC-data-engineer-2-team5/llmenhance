@@ -208,6 +208,47 @@ def test_answer_question_expands_to_parent_and_returns_sources(monkeypatch):
     assert "문서에서 확인되지 않습니다" in captured["system_prompt"]
 
 
+def test_answer_question_passes_original_and_canonical_question_to_qwen(monkeypatch):
+    pipeline = rag_pipeline()
+    captured = {}
+
+    monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(pipeline, "search_chunks", lambda *args, **kwargs: [child_hit()])
+
+    def fake_chat_qwen(
+        base_url, model, system_prompt, user_prompt, temperature, num_ctx, num_predict
+    ):
+        captured["user_prompt"] = user_prompt
+        return "문서 기준상 최소 3영업일 전까지 신청해야 하므로 2일 뒤는 기준을 충족하지 않습니다."
+
+    monkeypatch.setattr(pipeline, "chat_qwen", fake_chat_qwen)
+
+    pipeline.answer_question("2일 뒤에 연차 신청하려고 하는데 될까요?", 5, settings=make_settings())
+
+    assert "[original_question]" in captured["user_prompt"]
+    assert "2일 뒤에 연차 신청하려고 하는데 될까요?" in captured["user_prompt"]
+    assert "[canonical_question]" in captured["user_prompt"]
+    assert "문서 기준상" in captured["user_prompt"]
+    assert "충족" in captured["user_prompt"]
+
+
+def test_answer_question_keeps_original_question_for_retrieval(monkeypatch):
+    pipeline = rag_pipeline()
+    captured = {}
+
+    def fake_embed_text(base_url, model, text):
+        captured["embedded_text"] = text
+        return [0.1, 0.2, 0.3]
+
+    monkeypatch.setattr(pipeline, "embed_text", fake_embed_text)
+    monkeypatch.setattr(pipeline, "search_chunks", lambda *args, **kwargs: [child_hit()])
+    monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: "답변")
+
+    pipeline.answer_question("2일 뒤에 연차 신청하려고 하는데 될까요?", 5, settings=make_settings())
+
+    assert captured["embedded_text"] == "2일 뒤에 연차 신청하려고 하는데 될까요?"
+
+
 def test_answer_question_dedupes_children_sharing_a_parent(monkeypatch):
     pipeline = rag_pipeline()
 

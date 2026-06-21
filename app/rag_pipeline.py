@@ -7,6 +7,7 @@ from typing import Any, TypeVar
 
 from app.config import Settings
 from app.embeddings import embed_text
+from app.question_interpreter import InterpretedQuestion, interpret_question
 from app.qwen_client import chat_qwen
 from app.sparse import text_to_sparse
 from app.vector_store import search_chunks
@@ -71,6 +72,7 @@ def answer_question(
     if metadata_filter is not None and not isinstance(metadata_filter, dict):
         raise TypeError("metadata_filter must be a dict or None")
 
+    interpreted_question = interpret_question(normalized_question)
     active_settings = settings or Settings.from_env()
 
     _report_progress(progress, 0)
@@ -109,7 +111,7 @@ def answer_question(
     parents, user_prompt = _run_timed(
         TIMING_LABELS[3],
         timing,
-        lambda: _build_context(normalized_question, search_results, top_k),
+        lambda: _build_context(interpreted_question, search_results, top_k),
     )
     if not parents:
         return _fallback_result()
@@ -173,14 +175,15 @@ def _fallback_result() -> dict[str, Any]:
 
 
 def _build_context(
-    question: str,
+    question: str | InterpretedQuestion,
     search_results: list[dict],
     top_k: int,
 ) -> tuple[list[RetrievedParent], str]:
     parents = _expand_to_parents(search_results, top_k)
     if not parents:
         return [], ""
-    return parents, _build_user_prompt(question, parents)
+    interpreted_question = _ensure_interpreted_question(question)
+    return parents, _build_user_prompt(interpreted_question, parents)
 
 
 def _expand_to_parents(search_results: list[dict], top_k: int) -> list[RetrievedParent]:
@@ -227,15 +230,26 @@ def _payload(result: dict) -> dict:
     return {}
 
 
-def _build_user_prompt(question: str, parents: list[RetrievedParent]) -> str:
+def _ensure_interpreted_question(question: str | InterpretedQuestion) -> InterpretedQuestion:
+    if isinstance(question, InterpretedQuestion):
+        return question
+    return interpret_question(question)
+
+
+def _build_user_prompt(
+    interpreted_question: InterpretedQuestion, parents: list[RetrievedParent]
+) -> str:
     context = "\n\n".join(
         _format_context_parent(index, parent) for index, parent in enumerate(parents, start=1)
     )
     return f"""[context]
 {context}
 
-[question]
-{question}"""
+[original_question]
+{interpreted_question.original_question}
+
+[canonical_question]
+{interpreted_question.canonical_question}"""
 
 
 def _format_context_parent(index: int, parent: RetrievedParent) -> str:
