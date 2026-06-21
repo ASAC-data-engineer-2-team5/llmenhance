@@ -2,6 +2,15 @@
 
 This file defines how AI agents and contributors should work inside the `llmenhance` repository.
 
+## ⚠️ Required Reading Before Any Work
+
+**Before starting any task, read [CONTRIBUTING.md](./CONTRIBUTING.md) in full.**
+It defines commit message conventions (`type: summary`), required PR content
+(change summary, test method, reviewer focus areas), and local checks
+(`ruff check`, `ruff format --check`, `pytest`) that must pass before any
+work is considered complete. This applies to every change, including small
+ones.
+
 ## Project Identity
 
 `llmenhance` is an MVP for an internal policy and company document chatbot.
@@ -109,11 +118,18 @@ If a task needs another owner's file, stop and report the dependency instead of 
 
 ## Verification Commands
 
-Run these before claiming relevant work is complete:
+Run these before claiming relevant work is complete. See also the local
+checks required by [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-```powershell
+\`\`\`powershell
 docker compose up -d
 docker compose run --rm rag-api pytest -v
 curl http://localhost:6333
 docker compose run --rm rag-api python -m app.healthcheck
-```
+\`\`\`
+
+\`\`\`bash
+ruff check .
+ruff format --check .
+pytest
+\`\`\`

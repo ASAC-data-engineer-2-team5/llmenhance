@@ -237,7 +237,7 @@ def test_answer_question_returns_answer_and_sources_on_grounded_path(
             "num_ctx": num_ctx,
             "num_predict": num_predict,
         }
-        return "연차 신청은 최소 3영업일 전까지 해야 합니다."
+        return {"content": "연차 신청은 최소 3영업일 전까지 해야 합니다."}
 
     monkeypatch.setattr(pipeline, "chat_qwen", fake_chat_qwen)
 
@@ -261,6 +261,8 @@ def test_answer_question_returns_answer_and_sources_on_grounded_path(
                 "score": 0.91,
             }
         ],
+        "eval_count": None,
+        "eval_duration_ns": None,
     }
     assert captured["chat"]["base_url"] == "http://ollama.test"
     assert captured["chat"]["model"] == "qwen3.6:latest"
@@ -296,7 +298,7 @@ def test_answer_question_reports_progress_events_on_grounded_path(
     monkeypatch.setattr(
         pipeline,
         "chat_qwen",
-        lambda *args, **kwargs: "연차 신청은 최소 3영업일 전까지 해야 합니다.",
+        lambda *args, **kwargs: {"content": "연차 신청은 최소 3영업일 전까지 해야 합니다."},
     )
 
     pipeline.answer_question(
@@ -362,7 +364,7 @@ def test_answer_question_reports_timing_events_on_grounded_path(
     monkeypatch.setattr(
         pipeline,
         "chat_qwen",
-        lambda *args, **kwargs: "Annual leave must be requested in advance.",
+        lambda *args, **kwargs: {"content": "Annual leave must be requested in advance."},
     )
 
     pipeline.answer_question(

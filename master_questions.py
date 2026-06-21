@@ -11,7 +11,7 @@ QUESTIONS = [
         "question": "법인카드로 개인 식사비를 결제해도 되나요?",
         "answer_article": "",
         "keyword": "금지",
-        "ground_truth": "개인 식사, 가족 비용, 개인 쇼핑, 현금성 상품권 구매에는 사용할 수 없다.",
+        "ground_truth": ("개인 식사, 가족 비용, 개인 쇼핑, 현금성 상품권 구매에는 사용할 수 없다."),
         "department": "finance",
         "category": "corporate-card",
         "out_of_scope": False,
@@ -23,7 +23,10 @@ QUESTIONS = [
         "question": "법인카드 사용 후 영수증은 며칠 안에 등록해야 하나요?",
         "answer_article": "",
         "keyword": "3영업일",
-        "ground_truth": "카드 사용자는 결제 후 3영업일 이내에 비용 시스템에 사용 목적, 참석자, 관련 프로젝트, 영수증 이미지를 등록해야 한다.",
+        "ground_truth": (
+            "카드 사용자는 결제 후 3영업일 이내에 비용 시스템에 "
+            "사용 목적, 참석자, 관련 프로젝트, 영수증 이미지를 등록해야 한다."
+        ),
         "department": "finance",
         "category": "corporate-card",
         "out_of_scope": False,
@@ -35,7 +38,9 @@ QUESTIONS = [
         "question": "법인카드를 분실했을 때 가장 먼저 해야 할 일은 무엇인가요?",
         "answer_article": "",
         "keyword": "사용 정지",
-        "ground_truth": "사용자는 발견 즉시 카드사에 사용 정지를 요청하고 finance와 팀장에게 신고해야 한다.",
+        "ground_truth": (
+            "사용자는 발견 즉시 카드사에 사용 정지를 요청하고 finance와 팀장에게 신고해야 한다."
+        ),
         "department": "finance",
         "category": "corporate-card",
         "out_of_scope": False,
@@ -47,7 +52,10 @@ QUESTIONS = [
         "question": "퇴사할 때 법인카드는 어떻게 해야 하나요?",
         "answer_article": "",
         "keyword": "반납",
-        "ground_truth": "퇴사, 전보, 장기 휴직, 역할 변경으로 법인카드가 더 이상 필요하지 않으면 즉시 finance에 반납한다.",
+        "ground_truth": (
+            "퇴사, 전보, 장기 휴직, 역할 변경으로 법인카드가 더 이상 "
+            "필요하지 않으면 즉시 finance에 반납한다."
+        ),
         "department": "finance",
         "category": "corporate-card",
         "out_of_scope": False,
@@ -59,7 +67,7 @@ QUESTIONS = [
         "question": "법인카드 한도를 초과해서 결제할 수 있나요?",
         "answer_article": "",
         "keyword": "임의로 초과",
-        "ground_truth": "카드 한도는 직무와 예산에 따라 정해지며, 임의로 초과 사용할 수 없다.",
+        "ground_truth": ("카드 한도는 직무와 예산에 따라 정해지며, 임의로 초과 사용할 수 없다."),
         "department": "finance",
         "category": "corporate-card",
         "out_of_scope": False,
@@ -72,7 +80,9 @@ QUESTIONS = [
         "question": "경비 정산은 언제까지 제출해야 하나요?",
         "answer_article": "",
         "keyword": "5영업일",
-        "ground_truth": "임직원은 경비 발생일이 속한 달의 다음 달 5영업일까지 경비 정산을 제출해야 한다.",
+        "ground_truth": (
+            "임직원은 경비 발생일이 속한 달의 다음 달 5영업일까지 경비 정산을 제출해야 한다."
+        ),
         "department": "finance",
         "category": "expense",
         "out_of_scope": False,
@@ -84,7 +94,10 @@ QUESTIONS = [
         "question": "경비 신청이 반려되면 어떻게 해야 하나요?",
         "answer_article": "",
         "keyword": "수정",
-        "ground_truth": "반려된 신청은 반려 사유를 수정한 뒤 다시 제출할 수 있으며, 동일 건을 새 신청으로 중복 등록해서는 안 된다.",
+        "ground_truth": (
+            "반려된 신청은 반려 사유를 수정한 뒤 다시 제출할 수 있으며, "
+            "동일 건을 새 신청으로 중복 등록해서는 안 된다."
+        ),
         "department": "finance",
         "category": "expense",
         "out_of_scope": False,
@@ -96,7 +109,10 @@ QUESTIONS = [
         "question": "개인카드로 업무 비용을 결제하면 어떻게 환급받나요?",
         "answer_article": "",
         "keyword": "본인 명의 계좌",
-        "ground_truth": "개인카드로 업무 비용을 결제한 경우에는 본인 명의 계좌로 환급되며, 환급 예정일은 finance 월별 지급 일정에 따른다.",
+        "ground_truth": (
+            "개인카드로 업무 비용을 결제한 경우에는 본인 명의 계좌로 "
+            "환급되며, 환급 예정일은 finance 월별 지급 일정에 따른다."
+        ),
         "department": "finance",
         "category": "expense",
         "out_of_scope": False,
@@ -108,7 +124,10 @@ QUESTIONS = [
         "question": "긴급 장애 대응으로 사전 승인 없이 지출했을 때 어떻게 해야 하나요?",
         "answer_article": "",
         "keyword": "2영업일",
-        "ground_truth": "긴급 장애 대응처럼 사전 승인이 어려운 비용은 지출 후 2영업일 이내에 팀장과 finance에 사유를 공유해야 한다.",
+        "ground_truth": (
+            "긴급 장애 대응처럼 사전 승인이 어려운 비용은 지출 후 "
+            "2영업일 이내에 팀장과 finance에 사유를 공유해야 한다."
+        ),
         "department": "finance",
         "category": "expense",
         "out_of_scope": False,
@@ -121,7 +140,7 @@ QUESTIONS = [
         "question": "고객 접대 식사에서 현금 선물을 줘도 되나요?",
         "answer_article": "",
         "keyword": "인정하지 않",
-        "ground_truth": "현금성 선물, 고가 주류, 사행성 장소, 가족 동반 비용은 인정하지 않는다.",
+        "ground_truth": ("현금성 선물, 고가 주류, 사행성 장소, 가족 동반 비용은 인정하지 않는다."),
         "department": "finance",
         "category": "meal-entertainment",
         "out_of_scope": False,
@@ -133,7 +152,10 @@ QUESTIONS = [
         "question": "외부 고객이 참석하는 식사는 사전에 어떤 승인이 필요한가요?",
         "answer_article": "",
         "keyword": "사전 승인",
-        "ground_truth": "예상 금액이 부서 기준을 초과하거나 외부 고객이 참석하는 접대 성격의 식사는 사전 승인을 받아야 한다.",
+        "ground_truth": (
+            "예상 금액이 부서 기준을 초과하거나 외부 고객이 참석하는 "
+            "접대 성격의 식사는 사전 승인을 받아야 한다."
+        ),
         "department": "finance",
         "category": "meal-entertainment",
         "out_of_scope": False,
@@ -145,7 +167,11 @@ QUESTIONS = [
         "question": "회식비 정산 시 참석자 정보가 없으면 어떻게 되나요?",
         "answer_article": "",
         "keyword": "반려",
-        "ground_truth": "참석자 정보가 없거나, 업무 목적이 불분명하거나, 과도한 음주 비용이 포함되거나, 제한 업종에서 결제된 비용은 반려될 수 있다.",
+        "ground_truth": (
+            "참석자 정보가 없거나, 업무 목적이 불분명하거나, 과도한 "
+            "음주 비용이 포함되거나, 제한 업종에서 결제된 비용은 "
+            "반려될 수 있다."
+        ),
         "department": "finance",
         "category": "meal-entertainment",
         "out_of_scope": False,
@@ -158,7 +184,9 @@ QUESTIONS = [
         "question": "구매 요청서는 언제까지 제출해야 하나요?",
         "answer_article": "",
         "keyword": "5영업일",
-        "ground_truth": "구매 요청자는 필요한 사용일 최소 5영업일 전까지 구매 요청서를 제출해야 한다.",
+        "ground_truth": (
+            "구매 요청자는 필요한 사용일 최소 5영업일 전까지 구매 요청서를 제출해야 한다."
+        ),
         "department": "finance",
         "category": "procurement",
         "out_of_scope": False,
@@ -170,7 +198,10 @@ QUESTIONS = [
         "question": "비교 견적이 어려운 경우 어떻게 해야 하나요?",
         "answer_article": "",
         "keyword": "단독 구매 사유서",
-        "ground_truth": "단독 공급, 호환성, 기존 계약 연장처럼 비교 견적이 어려운 경우 요청자는 단독 구매 사유서를 작성한다.",
+        "ground_truth": (
+            "단독 공급, 호환성, 기존 계약 연장처럼 비교 견적이 "
+            "어려운 경우 요청자는 단독 구매 사유서를 작성한다."
+        ),
         "department": "finance",
         "category": "procurement",
         "out_of_scope": False,
@@ -182,7 +213,7 @@ QUESTIONS = [
         "question": "승인 전에 먼저 주문하면 어떻게 되나요?",
         "answer_article": "",
         "keyword": "반려",
-        "ground_truth": "승인 전 구매자가 임의로 발주하거나 결제하면 비용 처리가 반려될 수 있다.",
+        "ground_truth": ("승인 전 구매자가 임의로 발주하거나 결제하면 비용 처리가 반려될 수 있다."),
         "department": "finance",
         "category": "procurement",
         "out_of_scope": False,
@@ -195,7 +226,11 @@ QUESTIONS = [
         "question": "출장 신청은 언제까지 해야 하나요?",
         "answer_article": "",
         "keyword": "3영업일",
-        "ground_truth": "임직원은 출장 예정일 최소 3영업일 전까지 출장 목적, 방문 기관, 일정, 예상 비용, 동행자를 출장 신청서에 입력해야 한다.",
+        "ground_truth": (
+            "임직원은 출장 예정일 최소 3영업일 전까지 출장 목적, "
+            "방문 기관, 일정, 예상 비용, 동행자를 출장 신청서에 "
+            "입력해야 한다."
+        ),
         "department": "finance",
         "category": "travel",
         "out_of_scope": False,
@@ -207,7 +242,7 @@ QUESTIONS = [
         "question": "출장비 정산서는 출장 후 며칠 안에 내야 하나요?",
         "answer_article": "",
         "keyword": "5영업일",
-        "ground_truth": "출장자는 출장 종료일로부터 5영업일 이내에 출장비 정산을 제출해야 한다.",
+        "ground_truth": ("출장자는 출장 종료일로부터 5영업일 이내에 출장비 정산을 제출해야 한다."),
         "department": "finance",
         "category": "travel",
         "out_of_scope": False,
@@ -219,7 +254,9 @@ QUESTIONS = [
         "question": "출장비 선지급은 어떻게 신청하나요?",
         "answer_article": "",
         "keyword": "5영업일 전",
-        "ground_truth": "선지급 신청은 출장 시작 5영업일 전까지 제출하며 예상 비용 산출 근거를 첨부한다.",
+        "ground_truth": (
+            "선지급 신청은 출장 시작 5영업일 전까지 제출하며 예상 비용 산출 근거를 첨부한다."
+        ),
         "department": "finance",
         "category": "travel",
         "out_of_scope": False,
@@ -231,7 +268,11 @@ QUESTIONS = [
         "question": "항공권은 어떤 등급을 기본으로 구매해야 하나요?",
         "answer_article": "",
         "keyword": "일반석",
-        "ground_truth": "항공권과 철도는 일반석을 기본으로 하며, 장거리 이동이나 건강상 사유가 있는 경우 부서장 승인을 통해 예외를 신청할 수 있다.",
+        "ground_truth": (
+            "항공권과 철도는 일반석을 기본으로 하며, 장거리 이동이나 "
+            "건강상 사유가 있는 경우 부서장 승인을 통해 예외를 "
+            "신청할 수 있다."
+        ),
         "department": "finance",
         "category": "travel",
         "out_of_scope": False,
@@ -256,7 +297,9 @@ QUESTIONS = [
         "question": "문서를 개인 PC에 저장해도 되나요?",
         "answer_article": "",
         "keyword": "인정하지 않",
-        "ground_truth": "개인 PC, 개인 클라우드, 개인 이메일 보관함은 공식 보존 위치로 인정하지 않는다.",
+        "ground_truth": (
+            "개인 PC, 개인 클라우드, 개인 이메일 보관함은 공식 보존 위치로 인정하지 않는다."
+        ),
         "department": "general",
         "category": "document-retention",
         "out_of_scope": False,
@@ -268,7 +311,10 @@ QUESTIONS = [
         "question": "보존 기간이 지난 문서는 어떻게 폐기하나요?",
         "answer_article": "",
         "keyword": "팀장 승인",
-        "ground_truth": "보존 기간이 지난 문서는 문서 소유자가 폐기 대상 목록을 작성하고 팀장 승인을 받아 삭제한다.",
+        "ground_truth": (
+            "보존 기간이 지난 문서는 문서 소유자가 폐기 대상 목록을 "
+            "작성하고 팀장 승인을 받아 삭제한다."
+        ),
         "department": "general",
         "category": "document-retention",
         "out_of_scope": False,
@@ -281,7 +327,9 @@ QUESTIONS = [
         "question": "회의가 취소됐을 때 예약은 어떻게 해야 하나요?",
         "answer_article": "",
         "keyword": "즉시 취소",
-        "ground_truth": "회의가 취소되거나 장소가 변경되면 예약자는 즉시 캘린더 예약을 취소해야 한다.",
+        "ground_truth": (
+            "회의가 취소되거나 장소가 변경되면 예약자는 즉시 캘린더 예약을 취소해야 한다."
+        ),
         "department": "general",
         "category": "meeting-room",
         "out_of_scope": False,
@@ -293,7 +341,11 @@ QUESTIONS = [
         "question": "회의실 no-show가 반복되면 어떻게 되나요?",
         "answer_article": "",
         "keyword": "3회",
-        "ground_truth": "동일 사용자가 한 달에 3회 이상 no-show를 발생시키면 general 운영 담당자는 해당 사용자와 팀장에게 알림을 보내고 반복 예약 권한을 제한할 수 있다.",
+        "ground_truth": (
+            "동일 사용자가 한 달에 3회 이상 no-show를 발생시키면 "
+            "general 운영 담당자는 해당 사용자와 팀장에게 알림을 보내고 "
+            "반복 예약 권한을 제한할 수 있다."
+        ),
         "department": "general",
         "category": "meeting-room",
         "out_of_scope": False,
@@ -305,7 +357,11 @@ QUESTIONS = [
         "question": "외부 방문객이 오는 회의실에서 주의할 점은 무엇인가요?",
         "answer_article": "",
         "keyword": "민감한 내용",
-        "ground_truth": "confidential 문서나 고객 정보가 보이는 화면은 방문객 입장 전에 정리해야 하며, 회의실 화이트보드에 남은 민감한 내용은 회의 종료 후 삭제한다.",
+        "ground_truth": (
+            "confidential 문서나 고객 정보가 보이는 화면은 방문객 입장 "
+            "전에 정리해야 하며, 회의실 화이트보드에 남은 민감한 내용은 "
+            "회의 종료 후 삭제한다."
+        ),
         "department": "general",
         "category": "meeting-room",
         "out_of_scope": False,
@@ -318,7 +374,10 @@ QUESTIONS = [
         "question": "연차는 며칠 전에 신청해야 하나요?",
         "answer_article": "",
         "keyword": "3영업일",
-        "ground_truth": "임직원은 연차를 사용하려는 경우 원칙적으로 사용 예정일 최소 3영업일 전까지 사내 근태 시스템에 신청해야 한다.",
+        "ground_truth": (
+            "임직원은 연차를 사용하려는 경우 원칙적으로 사용 예정일 "
+            "최소 3영업일 전까지 사내 근태 시스템에 신청해야 한다."
+        ),
         "department": "hr",
         "category": "leave",
         "out_of_scope": False,
@@ -330,7 +389,7 @@ QUESTIONS = [
         "question": "팀장은 연차 신청 후 며칠 안에 승인해야 하나요?",
         "answer_article": "",
         "keyword": "1영업일",
-        "ground_truth": "팀장은 신청일로부터 1영업일 이내에 승인 또는 반려 사유를 기록해야 한다.",
+        "ground_truth": ("팀장은 신청일로부터 1영업일 이내에 승인 또는 반려 사유를 기록해야 한다."),
         "department": "hr",
         "category": "leave",
         "out_of_scope": False,
@@ -342,7 +401,11 @@ QUESTIONS = [
         "question": "갑자기 아파서 연차를 사전에 신청 못 했을 때는 어떻게 하나요?",
         "answer_article": "",
         "keyword": "2영업일",
-        "ground_truth": "긴급한 질병, 가족 돌봄, 사고 등 예외 상황은 사용 후 지체 없이 증빙과 함께 사후 신청할 수 있다. 사후 신청은 복귀 후 2영업일 이내에 제출해야 한다.",
+        "ground_truth": (
+            "긴급한 질병, 가족 돌봄, 사고 등 예외 상황은 사용 후 지체 "
+            "없이 증빙과 함께 사후 신청할 수 있다. 사후 신청은 복귀 후 "
+            "2영업일 이내에 제출해야 한다."
+        ),
         "department": "hr",
         "category": "leave",
         "out_of_scope": False,
@@ -354,7 +417,9 @@ QUESTIONS = [
         "question": "오전 반차는 몇 시간인가요?",
         "answer_article": "",
         "keyword": "4시간",
-        "ground_truth": "오전 반차는 근무 시작 시각부터 4시간, 오후 반차는 근무 종료 전 4시간을 기준으로 한다.",
+        "ground_truth": (
+            "오전 반차는 근무 시작 시각부터 4시간, 오후 반차는 근무 종료 전 4시간을 기준으로 한다."
+        ),
         "department": "hr",
         "category": "leave",
         "out_of_scope": False,
@@ -367,7 +432,11 @@ QUESTIONS = [
         "question": "입사 후 필수 교육은 며칠 안에 완료해야 하나요?",
         "answer_article": "",
         "keyword": "10영업일",
-        "ground_truth": "신규 입사자는 입사 후 10영업일 이내에 개인정보 보호 교육, 정보보안 교육, 직장 내 괴롭힘 예방 교육, 비용 처리 기본 교육을 완료해야 한다.",
+        "ground_truth": (
+            "신규 입사자는 입사 후 10영업일 이내에 개인정보 보호 교육, "
+            "정보보안 교육, 직장 내 괴롭힘 예방 교육, 비용 처리 기본 "
+            "교육을 완료해야 한다."
+        ),
         "department": "hr",
         "category": "onboarding",
         "out_of_scope": False,
@@ -379,7 +448,10 @@ QUESTIONS = [
         "question": "입사 첫날 무엇을 확인해야 하나요?",
         "answer_article": "",
         "keyword": "근태 시스템",
-        "ground_truth": "첫날 종료 전 신규 입사자는 사내 인트라넷 접속, 메신저 로그인, 근태 시스템 접속을 확인해야 한다.",
+        "ground_truth": (
+            "첫날 종료 전 신규 입사자는 사내 인트라넷 접속, 메신저 "
+            "로그인, 근태 시스템 접속을 확인해야 한다."
+        ),
         "department": "hr",
         "category": "onboarding",
         "out_of_scope": False,
@@ -416,7 +488,10 @@ QUESTIONS = [
         "question": "재택근무 신청은 언제까지 해야 하나요?",
         "answer_article": "",
         "keyword": "1영업일",
-        "ground_truth": "재택근무를 원하는 임직원은 근무 예정일 최소 1영업일 전까지 근태 시스템에 신청해야 한다.",
+        "ground_truth": (
+            "재택근무를 원하는 임직원은 근무 예정일 최소 1영업일 전까지 "
+            "근태 시스템에 신청해야 한다."
+        ),
         "department": "hr",
         "category": "remote-work",
         "out_of_scope": False,
@@ -428,7 +503,11 @@ QUESTIONS = [
         "question": "카페에서 재택근무하면서 고객 자료를 봐도 되나요?",
         "answer_article": "",
         "keyword": "열람할 수 없",
-        "ground_truth": "공용 카페, 도서관, 이동 중 교통수단처럼 화면 노출이나 대화 유출 위험이 큰 장소에서는 confidential 문서와 개인정보 문서를 열람할 수 없다.",
+        "ground_truth": (
+            "공용 카페, 도서관, 이동 중 교통수단처럼 화면 노출이나 "
+            "대화 유출 위험이 큰 장소에서는 confidential 문서와 "
+            "개인정보 문서를 열람할 수 없다."
+        ),
         "department": "hr",
         "category": "remote-work",
         "out_of_scope": False,
@@ -440,7 +519,10 @@ QUESTIONS = [
         "question": "신규 입사자도 바로 재택근무를 할 수 있나요?",
         "answer_article": "",
         "keyword": "4주",
-        "ground_truth": "신규 입사자는 입사 후 첫 4주 동안 온보딩과 협업 적응을 위해 원칙적으로 사무실 근무를 우선한다.",
+        "ground_truth": (
+            "신규 입사자는 입사 후 첫 4주 동안 온보딩과 협업 적응을 "
+            "위해 원칙적으로 사무실 근무를 우선한다."
+        ),
         "department": "hr",
         "category": "remote-work",
         "out_of_scope": False,
@@ -465,7 +547,7 @@ QUESTIONS = [
         "question": "업무 기기를 분실했을 때 누구에게 신고해야 하나요?",
         "answer_article": "",
         "keyword": "보안 부서",
-        "ground_truth": "임직원은 발견 즉시 팀장, IT 헬프데스크, 보안 부서에 신고해야 한다.",
+        "ground_truth": ("임직원은 발견 즉시 팀장, IT 헬프데스크, 보안 부서에 신고해야 한다."),
         "department": "security",
         "category": "device-security",
         "out_of_scope": False,
@@ -477,7 +559,7 @@ QUESTIONS = [
         "question": "모르는 USB를 회사 노트북에 꽂아도 되나요?",
         "answer_article": "",
         "keyword": "금지",
-        "ground_truth": "알 수 없는 출처의 USB나 충전 장치를 업무 기기에 연결해서는 안 된다.",
+        "ground_truth": ("알 수 없는 출처의 USB나 충전 장치를 업무 기기에 연결해서는 안 된다."),
         "department": "security",
         "category": "device-security",
         "out_of_scope": False,
@@ -490,7 +572,11 @@ QUESTIONS = [
         "question": "개인정보 파일을 이메일로 보내야 할 때 어떻게 해야 하나요?",
         "answer_article": "",
         "keyword": "암호화",
-        "ground_truth": "개인정보 파일을 이메일이나 외부 협업 도구로 전송해야 하는 예외 상황에서는 파일 암호화와 별도 채널 비밀번호 전달을 적용한다.",
+        "ground_truth": (
+            "개인정보 파일을 이메일이나 외부 협업 도구로 전송해야 하는 "
+            "예외 상황에서는 파일 암호화와 별도 채널 비밀번호 전달을 "
+            "적용한다."
+        ),
         "department": "security",
         "category": "privacy",
         "out_of_scope": False,
@@ -502,7 +588,10 @@ QUESTIONS = [
         "question": "개인정보가 유출된 것 같으면 어떻게 신고하나요?",
         "answer_article": "",
         "keyword": "보안 부서",
-        "ground_truth": "개인정보가 잘못 공유되었거나 외부로 유출되었거나 권한 없는 사용자가 접근한 정황이 있으면 즉시 보안 부서에 신고해야 한다.",
+        "ground_truth": (
+            "개인정보가 잘못 공유되었거나 외부로 유출되었거나 권한 없는 "
+            "사용자가 접근한 정황이 있으면 즉시 보안 부서에 신고해야 한다."
+        ),
         "department": "security",
         "category": "privacy",
         "out_of_scope": False,

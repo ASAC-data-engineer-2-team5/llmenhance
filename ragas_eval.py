@@ -35,11 +35,13 @@ RAG 검색 품질 평가 (RAGAS 기반, 다중 채점 모델 지원)
    docker-compose run --rm rag-api python ragas_eval.py --judge claude --n 5
 =======================================================================
 """
+
 from __future__ import annotations
 
 import argparse
 import datetime
 import json
+import math
 import os
 import statistics
 import sys
@@ -66,6 +68,7 @@ def get_judge_llm(judge_name: str):
 
     if judge_name == "claude":
         from langchain_aws import BedrockEmbeddings, ChatBedrock
+
         llm = ChatBedrock(
             model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0",
             region_name=os.environ.get("AWS_REGION", "us-east-1"),
@@ -78,6 +81,7 @@ def get_judge_llm(judge_name: str):
 
     elif judge_name == "gpt-oss":
         from langchain_aws import BedrockEmbeddings, ChatBedrock
+
         llm = ChatBedrock(
             model_id="openai.gpt-oss-120b-1:0",
             region_name=os.environ.get("AWS_REGION", "us-east-1"),
@@ -93,11 +97,10 @@ def get_judge_llm(judge_name: str):
             ChatGoogleGenerativeAI,
             GoogleGenerativeAIEmbeddings,
         )
+
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
-            raise RuntimeError(
-                ".env에 GOOGLE_API_KEY가 필요합니다 (Google AI Studio에서 발급)"
-            )
+            raise RuntimeError(".env에 GOOGLE_API_KEY가 필요합니다 (Google AI Studio에서 발급)")
         llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
             google_api_key=api_key,
@@ -109,9 +112,7 @@ def get_judge_llm(judge_name: str):
         )
 
     else:
-        raise ValueError(
-            f"지원하지 않는 judge: {judge_name} (claude / gpt-oss / gemini 중 선택)"
-        )
+        raise ValueError(f"지원하지 않는 judge: {judge_name} (claude / gpt-oss / gemini 중 선택)")
 
     return LangchainLLMWrapper(llm), embeddings
 
@@ -136,38 +137,40 @@ def collect_rag_data(eval_set: list[dict]) -> list[dict]:
             contexts: list[str] = []
             try:
                 result = answer_question(
-                    item["question"], doc_type=None,
-                    department=item["department"], category=item["category"],
-                    security_level=None, source_path=None,
-                    top_k=settings.retrieval_top_k, settings=settings,
+                    item["question"],
+                    doc_type=None,
+                    department=item["department"],
+                    category=item["category"],
+                    security_level=None,
+                    source_path=None,
+                    top_k=settings.retrieval_top_k,
+                    settings=settings,
                 )
                 answer = result["answer"]
 
                 # 실제 생성에 사용된 sources에서 chunk_id를 가져와
                 # 동일한 컨텍스트로 평가한다 (별도 재검색 안 함)
-                chunk_ids = [
-                    s["chunk_id"] for s in result.get("sources", [])
-                    if s.get("chunk_id")
-                ]
+                chunk_ids = [s["chunk_id"] for s in result.get("sources", []) if s.get("chunk_id")]
                 if chunk_ids:
                     placeholders = ",".join("?" for _ in chunk_ids)
                     rows = conn.execute(
-                        f"SELECT chunks.text FROM chunks "
-                        f"WHERE chunks.id IN ({placeholders})",
+                        f"SELECT chunks.text FROM chunks WHERE chunks.id IN ({placeholders})",
                         chunk_ids,
                     ).fetchall()
                     contexts = [row[0] for row in rows if row[0]]
             except Exception as e:
                 print(f"    생성/검색 오류: {e}")
 
-            dataset.append({
-                "question": item["question"],
-                "answer": answer,
-                "contexts": contexts,
-                "ground_truth": item["ground_truth"],
-                "category": item["category"],
-                "type": item["type"],
-            })
+            dataset.append(
+                {
+                    "question": item["question"],
+                    "answer": answer,
+                    "contexts": contexts,
+                    "ground_truth": item["ground_truth"],
+                    "category": item["category"],
+                    "type": item["type"],
+                }
+            )
     finally:
         conn.close()
 
@@ -208,6 +211,13 @@ def analyze_by_type(df, metric_name):
             print(f"    {t}: 채점 실패 (n=0)")
 
 
+def _safe_round(value, ndigits: int = 3):
+    """NaN을 JSON 직렬화 가능한 None으로 변환한다."""
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    return round(value, ndigits)
+
+
 def run_ragas(dataset, judge_name: str, n_runs: int = 1):
     if not dataset:
         print("⚠️  평가할 데이터가 없습니다 (dataset 비어있음). 종료합니다.")
@@ -216,9 +226,9 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
     try:
         all_dfs = []
         for run_idx in range(1, n_runs + 1):
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"RAGAS 실행 {run_idx}/{n_runs} | 채점 모델: {judge_name}")
-            print(f"{'='*60}")
+            print(f"{'=' * 60}")
             df = run_ragas_once(dataset, judge_name)
             all_dfs.append(df)
 
@@ -237,9 +247,9 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
         relev_means = [d["answer_relevancy"].dropna().mean() for d in all_dfs]
         recall_means = [d["context_recall"].dropna().mean() for d in all_dfs]
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"최종 결과 ({judge_name}, {n_runs}회 실행 기준)")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         def fmt(values, name):
             avg = statistics.mean(values)
@@ -251,9 +261,9 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
         r_avg, r_std = fmt(relev_means, "Answer Relevancy")
         c_avg, c_std = fmt(recall_means, "Context Recall  ")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print("질문 유형별 분석 (마지막 실행 기준)")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         last_df = all_dfs[-1]
         analyze_by_type(last_df, "faithfulness")
         analyze_by_type(last_df, "answer_relevancy")
@@ -266,13 +276,13 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
             "n_runs": n_runs,
             "n_questions": len(dataset),
             "summary": {
-                "faithfulness":     {"mean": round(f_avg, 3), "std": round(f_std, 3)},
+                "faithfulness": {"mean": round(f_avg, 3), "std": round(f_std, 3)},
                 "answer_relevancy": {"mean": round(r_avg, 3), "std": round(r_std, 3)},
-                "context_recall":   {"mean": round(c_avg, 3), "std": round(c_std, 3)},
+                "context_recall": {"mean": round(c_avg, 3), "std": round(c_std, 3)},
             },
             "by_type": {
                 metric: {
-                    t: round(last_df[last_df["type"] == t][metric].dropna().mean(), 3)
+                    t: _safe_round(last_df[last_df["type"] == t][metric].dropna().mean())
                     for t in sorted(last_df["type"].unique())
                 }
                 for metric in ["faithfulness", "answer_relevancy", "context_recall"]
@@ -280,16 +290,12 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
         }
 
         with open(f"ragas_results_{judge_name}.json", "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
-        with open(
-            f"ragas_results_{judge_name}_{timestamp}.json", "w", encoding="utf-8"
-        ) as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+            json.dump(result, f, ensure_ascii=False, indent=2, allow_nan=False)
+        with open(f"ragas_results_{judge_name}_{timestamp}.json", "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2, allow_nan=False)
 
         print(f"\n저장 완료: ragas_results_{judge_name}.json (최신)")
-        print(
-            f"저장 완료: ragas_results_{judge_name}_{timestamp}.json (누적 기록)"
-        )
+        print(f"저장 완료: ragas_results_{judge_name}_{timestamp}.json (누적 기록)")
 
     except ImportError as e:
         print(f"RAGAS/연동 패키지 오류: {e}")
@@ -298,9 +304,9 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
 
 
 def run_manual_eval(dataset, judge_name="manual"):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("수동 RAG 품질 평가 (Context Recall 근사값)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if not dataset:
         print("⚠️  평가할 데이터가 없습니다. 종료합니다.")
@@ -315,10 +321,7 @@ def run_manual_eval(dataset, judge_name="manual"):
         recall = matched / len(keywords) if keywords else 0
         recall_scores.append(recall)
         status = "✅" if recall >= 0.6 else "❌"
-        print(
-            f"  {status} [{item['category']}] "
-            f"{item['question'][:40]} → recall:{recall:.2f}"
-        )
+        print(f"  {status} [{item['category']}] {item['question'][:40]} → recall:{recall:.2f}")
 
     if not recall_scores:
         print("\n⚠️  recall_scores가 비어있어 평균을 계산할 수 없습니다.")
@@ -335,27 +338,30 @@ def run_manual_eval(dataset, judge_name="manual"):
         "note": "RAGAS 미사용, 수동 평가",
     }
     with open(f"ragas_results_{judge_name}.json", "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
-    with open(
-        f"ragas_results_{judge_name}_{timestamp}.json", "w", encoding="utf-8"
-    ) as f:
-        json.dump(result, f, indent=2)
+        json.dump(result, f, indent=2, allow_nan=False)
+    with open(f"ragas_results_{judge_name}_{timestamp}.json", "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2, allow_nan=False)
     print("\n저장 완료")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--judge", default="gpt-oss",
+        "--judge",
+        default="gpt-oss",
         choices=["claude", "gpt-oss", "gemini"],
         help="채점에 사용할 LLM",
     )
     parser.add_argument(
-        "--runs", type=int, default=1,
+        "--runs",
+        type=int,
+        default=1,
         help="반복 실행 횟수 (1 이상)",
     )
     parser.add_argument(
-        "--n", type=int, default=None,
+        "--n",
+        type=int,
+        default=None,
         help="평가할 질문 수 (기본: 전체 질문 평가)",
     )
     args = parser.parse_args()
@@ -365,12 +371,9 @@ if __name__ == "__main__":
     if args.n is not None and args.n < 1:
         parser.error("--n은 1 이상이어야 합니다")
 
-    eval_set = [
-        q for q in QUESTIONS
-        if not q["out_of_scope"] and q["ground_truth"]
-    ]
+    eval_set = [q for q in QUESTIONS if not q["out_of_scope"] and q["ground_truth"]]
     if args.n is not None:
-        eval_set = eval_set[:args.n]
+        eval_set = eval_set[: args.n]
 
     dataset = collect_rag_data(eval_set)
     run_ragas(dataset, judge_name=args.judge, n_runs=args.runs)
