@@ -66,11 +66,12 @@ except ImportError:
     print("psutil 미설치: pip install psutil --break-system-packages")
     sys.exit(1)
 
+from master_questions import QUESTIONS
+
 from app import metadata_store
 from app.config import Settings
 from app.qwen_client import chat_qwen
 from app.rag_pipeline import answer_question
-from master_questions import QUESTIONS
 
 settings = Settings.from_env()
 
@@ -193,7 +194,7 @@ def call_gemini_real(prompt: str):
         model = genai.GenerativeModel("gemini-2.5-flash")
 
         start = time.time()
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, reqeust_options={"timeout": 60})
         elapsed = round(time.time() - start, 2)
 
         usage = response.usage_metadata
@@ -285,6 +286,8 @@ def call_gptoss_real(prompt: str):
         body = json.loads(response["body"].read())
         answer = body["choices"][0]["message"]["content"]
         usage = body.get("usage", {})
+        if not usage:
+            print("    gpt-oss 경고: usage 데이터 누락, 비용 계산 불가")
         in_tok = usage.get("prompt_tokens", 0)
         out_tok = usage.get("completion_tokens", 0)
         cost = in_tok * PRICE["gpt-oss"]["input"] + out_tok * PRICE["gpt-oss"]["output"]
