@@ -20,22 +20,19 @@ The product is not a generic RAG demo. The target user is an employee asking pra
 7. Qwen requests must keep system instructions separate from user/context data and include a prompt injection guard.
 ```
 
-## MVP Architecture (target — work in progress)
+## MVP Architecture (current)
 
 ```text
 Structured markdown regulations
 -> structure-aware chunking (편/장/절/조/항, parent-child)
--> embedding (dense = arctic-embed-l-v2.0 (local); sparse = BM25 + kiwipiepy)
+-> embedding (dense = bge-m3 via host Ollama; sparse = BM25-style kiwipiepy)
 -> Qdrant hybrid search (dense + BM25, RRF fusion)
-   + payload metadata filter (조/항 path, department, ...)
+   + payload metadata filter (편/장/절/조/항 path, ...)
 -> (optional) cross-encoder rerank
 -> parent(조) expansion
 -> qwen via Ollama
 -> grounded answer with sources
 ```
-
-> NOTE: Target architecture (onprem-legal-rag based). Current code still uses
-> dense search + SQLite hard filter — check app/ and scripts/ before working.
 
 ## Expected User Questions
 
@@ -63,7 +60,7 @@ Those questions describe the engineering project, not the chatbot product.
 ```text
 1. Prefer small modules with clear ownership.
 2. Write tests before implementation for new behavior.
-3. Use parameterized SQL for all SQLite filters.
+3. Do not reintroduce SQLite metadata filters in the MVP; if SQL is added later, use parameterized SQL.
 4. Do not add natural-language-to-SQL in the MVP.
 5. Do not put Ollama/Qwen inside Docker for the MVP; call host Ollama through host.docker.internal:11434.
 6. Do not concatenate system prompts, retrieved context, and user questions into one undifferentiated prompt string.
@@ -79,11 +76,11 @@ Current ownership model:
 
 ```text
 Chunking: app/chunking.py, tests/test_chunking.py
-SQLite metadata: app/metadata_store.py, tests/test_metadata_store.py
 Ollama clients: app/embeddings.py, app/qwen_client.py, tests/test_ollama_clients.py
+Sparse retrieval: app/sparse.py, tests/test_sparse.py
 Qdrant store: app/vector_store.py, tests/test_vector_store.py
-Ingestion: scripts/ingest_md.py, datasets/docs/hr/leave-policy.md, tests/test_ingest_md.py
-RAG query: app/rag_pipeline.py, scripts/ask_rag.py, tests/test_rag_pipeline.py
+Ingestion: scripts/ingest_md.py, datasets/docs/regulations.md, tests/test_ingest_md.py
+RAG query: app/rag_pipeline.py, scripts/ask_rag.py, scripts/ask_rag_gemini.py, tests/test_rag_pipeline.py, tests/test_ask_rag_gemini.py
 ```
 
 If a task needs another owner's file, stop and report the dependency instead of editing it directly.

@@ -8,7 +8,7 @@ The project keeps the MVP local/on-premise story intact:
 Docker Compose: rag-api + Qdrant
 Windows host: Ollama + Qwen + bge-m3
 Repository data: Markdown policy docs
-Generated local state: SQLite metadata + Qdrant vectors
+Generated local state: Qdrant vectors + Docker volumes
 ```
 
 ## Agent Setup Contract
@@ -19,7 +19,7 @@ If you are a CLI coding agent asked to set up this project, follow this contract
 1. Read README.md first.
 2. Follow the Agent Setup Quickstart section exactly.
 3. Do not move Ollama/Qwen into Docker.
-4. Do not commit .env, storage/, SQLite files, or vector data.
+4. Do not commit .env, storage/, local DB files, or vector data.
 5. Report success only when scripts/dev_verify.ps1 prints SETUP_OK.
 ```
 
@@ -57,7 +57,7 @@ From the repository root:
 - pulls bge-m3
 - pulls qwen3:4b-instruct
 - builds and starts Docker services
-- rebuilds SQLite and Qdrant indexes from datasets/docs
+- rebuilds the Qdrant index from datasets/docs
 ```
 
 `dev_verify.ps1` proves the setup:
@@ -91,7 +91,7 @@ Then verify:
 curl.exe http://localhost:6333
 docker compose run --rm rag-api python -m app.healthcheck
 docker compose run --rm rag-api pytest -v
-docker compose run --rm rag-api python scripts/ask_rag.py "법인카드를 분실하면 어떻게 해야 하나요?" --department finance --category corporate-card --top-k 3 --timing
+docker compose run --rm rag-api python scripts/ask_rag.py "법인카드 사용 후 전표 처리는 언제까지 해야 하나요?" --top-k 3 --timing
 ```
 
 ## Troubleshooting
@@ -108,7 +108,7 @@ If Ollama fails:
 Start Ollama on the Windows host and rerun scripts/dev_setup.ps1.
 ```
 
-If Qdrant or SQLite data looks stale:
+If Qdrant data looks stale:
 
 ```powershell
 docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs --reset
