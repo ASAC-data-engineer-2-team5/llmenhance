@@ -22,6 +22,15 @@ STATUS_LABELS = {
 }
 
 
+def _gemini_enabled() -> bool:
+    return os.getenv("ENABLE_GEMINI_PANEL", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def main() -> None:
     st.set_page_config(
         page_title="사내 규정 챗봇 비교",
@@ -65,7 +74,8 @@ def _render_sidebar() -> None:
         _render_status_line("API 서버", status.get("api", {}))
         _render_status_line("Ollama / Qwen", status.get("ollama", {}))
         _render_status_line("Qdrant", status.get("qdrant", {}))
-        _render_status_line("Vertex Gemini", status.get("gemini", {}))
+        if _gemini_enabled():
+            _render_status_line("Vertex Gemini", status.get("gemini", {}))
 
         st.divider()
         overall = _overall_status(status)
@@ -78,9 +88,28 @@ def _render_sidebar() -> None:
 
 
 def _render_main() -> None:
-    st.title("사내 규정 챗봇 모델 비교")
+    st.title("사내 규정 챗봇 모델 비교" if _gemini_enabled() else "사내 규정 챗봇")
 
     status = st.session_state.service_status
+    if not _gemini_enabled():
+        _render_panel_header("EC2 Ollama / Qwen", status, "ollama")
+        st.caption("온프레미스 RAG 답변 생성")
+        st.divider()
+        _render_chat_history(st.session_state.qwen_messages)
+
+        question = st.chat_input("사내 규정에 대해 질문하세요.")
+        if not question:
+            return
+
+        st.session_state.qwen_messages.append({"role": "user", "content": question})
+        payload = {"question": question}
+
+        with st.spinner("문서 근거를 검색하고 답변을 생성하는 중..."):
+            result = _ask_active_models(payload)["qwen"]
+
+        _append_assistant_message("qwen_messages", result)
+        st.rerun()
+
     col_qwen, col_gemini = st.columns(2)
 
     with col_qwen:
@@ -103,7 +132,7 @@ def _render_main() -> None:
     payload = {"question": question}
 
     with st.spinner("두 모델에서 동시에 답변을 생성하는 중..."):
-        results = _ask_both_models(payload)
+        results = _ask_active_models(payload)
 
     _append_assistant_message("qwen_messages", results["qwen"])
     _append_assistant_message("gemini_messages", results["gemini"])
@@ -114,14 +143,26 @@ def _fetch_service_status() -> dict[str, Any]:
     try:
         response = httpx.get(HEALTH_ENDPOINT, timeout=HEALTH_TIMEOUT_SECONDS)
         response.raise_for_status()
-        return response.json()
+        status = response.json()
+        if not _gemini_enabled():
+            status["gemini"] = {"status": "ok", "detail": "Gemini panel disabled."}
+        return status
     except Exception as exc:
+        gemini_status = {"status": "unknown", "detail": ""}
+        if not _gemini_enabled():
+            gemini_status = {"status": "ok", "detail": "Gemini panel disabled."}
         return {
             "api": {"status": "error", "detail": f"API 서버 연결 실패: {exc}"},
             "ollama": {"status": "unknown", "detail": ""},
             "qdrant": {"status": "unknown", "detail": ""},
-            "gemini": {"status": "unknown", "detail": ""},
+            "gemini": gemini_status,
         }
+
+
+def _ask_active_models(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    if not _gemini_enabled():
+        return {"qwen": _call_rag(QWEN_ENDPOINT, payload)}
+    return _ask_both_models(payload)
 
 
 def _ask_both_models(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:

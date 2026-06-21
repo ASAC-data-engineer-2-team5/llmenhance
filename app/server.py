@@ -46,6 +46,17 @@ _CONVENIENCE_FILTER_FIELDS = (
 )
 
 
+def _env_flag(name: str, *, default: bool = False) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _gemini_endpoint_enabled() -> bool:
+    return _env_flag("ENABLE_GEMINI_ENDPOINT", default=False)
+
+
 class AskRequest(BaseModel):
     question: str
     top_k: int | None = None
@@ -121,6 +132,9 @@ def ask_qwen(req: AskRequest) -> AskResponse:
 
 @app.post("/api/ask/gemini", response_model=AskResponse)
 def ask_gemini(req: AskRequest) -> AskResponse:
+    if not _gemini_endpoint_enabled():
+        raise HTTPException(status_code=404, detail="Gemini endpoint is disabled.")
+
     settings = Settings.from_env()
     project = _gemini_project()
     if not project:

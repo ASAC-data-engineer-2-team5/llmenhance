@@ -89,6 +89,7 @@ def test_ask_gemini_requires_project(monkeypatch):
     server = server_module()
 
     monkeypatch.setattr(server.Settings, "from_env", make_settings)
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
     monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
 
@@ -98,12 +99,24 @@ def test_ask_gemini_requires_project(monkeypatch):
     assert getattr(exc_info.value, "status_code", None) == 503
 
 
+def test_ask_gemini_is_disabled_by_default(monkeypatch):
+    server = server_module()
+
+    monkeypatch.delenv("ENABLE_GEMINI_ENDPOINT", raising=False)
+
+    with pytest.raises(Exception) as exc_info:
+        server.ask_gemini(server.AskRequest(question="policy question"))
+
+    assert getattr(exc_info.value, "status_code", None) == 404
+
+
 def test_ask_gemini_uses_pr10_context_builder_pipeline(monkeypatch):
     server = server_module()
     settings = make_settings()
     captured = {}
 
     monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "project-123")
     monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "asia-northeast3")
     monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")

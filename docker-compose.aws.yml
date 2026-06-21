@@ -1,0 +1,40 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - /opt/llmenhance/qdrant:/qdrant/storage
+    restart: unless-stopped
+
+  rag-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - qdrant
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - /opt/llmenhance/storage:/app/storage
+    working_dir: /app
+    command: uvicorn app.server:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      RAG_API_URL: http://rag-api:8000
+    depends_on:
+      - rag-api
+    ports:
+      - "127.0.0.1:8501:8501"
+    working_dir: /app
+    command: streamlit run frontend/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
+    restart: unless-stopped

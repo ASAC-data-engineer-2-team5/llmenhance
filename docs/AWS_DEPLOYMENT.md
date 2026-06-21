@@ -1,0 +1,94 @@
+# AWS Deployment
+
+This deployment uses AWS for the application runtime while keeping Ollama/Qwen as an on-premise-like model server.
+
+## Contract
+
+- Qwen is used only for RAG answer generation.
+- Qwen answers only from retrieved internal document chunks.
+- If retrieved context does not confirm the answer, the service must answer `문서에서 확인되지 않습니다`.
+- Every grounded answer must include source references.
+- Ollama/Qwen is not installed inside Docker for the MVP.
+- The existing Ollama/Qwen EC2 is treated as the model server.
+- Terraform manages the app-side AWS resources first.
+- Port `11434` must not be opened to the internet.
+- Qdrant must not be exposed publicly.
+- The MVP app endpoint is verified through SSM port forwarding first.
+
+## Runtime Shape
+
+```text
+Tester workstation
+-> AWS SSM port forward
+-> app EC2 localhost:8501 or localhost:8000
+-> Docker Compose streamlit/rag-api/qdrant
+-> existing EC2 Ollama/Qwen model server
+```
+
+## First Deploy
+
+```bash
+cd /opt/llmenhance/app
+docker compose -f docker-compose.aws.yml up -d --build
+docker compose -f docker-compose.aws.yml run --rm rag-api python scripts/ingest_md.py datasets/docs --reset
+./scripts/aws_verify.sh
+```
+
+## Product Runtime
+
+The AWS MVP deployment uses the Qwen-only Streamlit surface by default:
+
+```env
+ENABLE_GEMINI_PANEL=false
+ENABLE_GEMINI_ENDPOINT=false
+```
+
+The Gemini comparison panel is allowed only for internal benchmark sessions.
+
+## Access
+
+Use Session Manager port forwarding for MVP validation:
+
+```bash
+aws ssm start-session \
+  --target <app-instance-id> \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["8501"],"localPortNumber":["8501"]}'
+```
+
+Open `http://localhost:8501` on the operator workstation.
+
+## Backup
+
+- Snapshot the app EC2 root EBS volume before any destructive re-indexing.
+- Use AWS Data Lifecycle Manager for daily EBS snapshots during MVP testing.
+- Keep at least seven daily snapshots.
+- Do not commit Qdrant data, SQLite files, `.env`, or Terraform state files.
+
+## Logging
+
+- CloudWatch Agent may collect host metrics, Docker logs, disk usage, and memory usage.
+- Application logs must not include full confidential document chunks by default.
+- The sample RAG answer can be logged only with answer metadata and source ids.
+
+## Rollback
+
+```bash
+cd /opt/llmenhance/app
+git fetch --all --prune
+git checkout <last-good-commit-or-branch>
+docker compose -f docker-compose.aws.yml up -d --build
+./scripts/aws_verify.sh
+```
+
+## Public Exposure Gates
+
+Do not expose Streamlit or `/api/ask/qwen` to the public internet until all are complete:
+
+- Authentication exists.
+- HTTPS exists.
+- CORS is restricted to the real frontend origin.
+- Request body size and rate limits exist.
+- Port `11434` remains private.
+- Port `6333` remains private.
+- Product UI is Qwen-only by default.

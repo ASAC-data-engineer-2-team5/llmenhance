@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y ca-certificates curl git docker.io docker-compose-plugin python3
+systemctl enable --now docker
+snap install amazon-ssm-agent --classic || true
+systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || systemctl enable --now amazon-ssm-agent || true
+
+mkdir -p /opt/llmenhance/qdrant
+mkdir -p /opt/llmenhance/storage
+mkdir -p /opt/llmenhance/app
+
+if [ ! -d /opt/llmenhance/app/.git ]; then
+  rm -rf /opt/llmenhance/app
+  git clone "${repo_url}" /opt/llmenhance/app
+fi
+
+cd /opt/llmenhance/app
+git fetch --all --prune
+git checkout "${repo_ref}"
+
+cat > /opt/llmenhance/app/.env <<ENVEOF
+TEAM_ENV_PROFILE=aws-app-ec2
+OLLAMA_BASE_URL=${ollama_base_url}
+LLM_MODEL=qwen3:4b-instruct
+EMBEDDING_MODEL=bge-m3
+
+QDRANT_URL=http://qdrant:6333
+QDRANT_COLLECTION=llmenhance_chunks
+
+RETRIEVAL_TOP_K=5
+TEMPERATURE=0.2
+NUM_CTX=4096
+NUM_PREDICT=512
+
+ENABLE_GEMINI_ENDPOINT=false
+ENABLE_GEMINI_PANEL=false
+ENVEOF
+
+docker compose -f docker-compose.aws.yml up -d --build

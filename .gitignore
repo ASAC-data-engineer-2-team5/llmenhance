@@ -62,3 +62,11 @@ target/
 # Local worktrees
 .worktrees/
 worktrees/
+
+# Terraform local state and local values
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/terraform.tfvars
+infra/terraform/**/backend.hcl
+infra/terraform/**/tfplan
