@@ -11,10 +11,7 @@ QUESTIONS = [
         "question": "법인카드로 개인 식사비를 결제해도 되나요?",
         "answer_article": "",
         "keyword": "금지",
-        "ground_truth": (
-            "개인 식사, 가족 비용, 개인 쇼핑, 현금성 상품권 구매에는 "
-            "사용할 수 없다."
-        ),
+        "ground_truth": ("개인 식사, 가족 비용, 개인 쇼핑, 현금성 상품권 구매에는 사용할 수 없다."),
         "department": "finance",
         "category": "corporate-card",
         "out_of_scope": False,
@@ -42,8 +39,7 @@ QUESTIONS = [
         "answer_article": "",
         "keyword": "사용 정지",
         "ground_truth": (
-            "사용자는 발견 즉시 카드사에 사용 정지를 요청하고 "
-            "finance와 팀장에게 신고해야 한다."
+            "사용자는 발견 즉시 카드사에 사용 정지를 요청하고 finance와 팀장에게 신고해야 한다."
         ),
         "department": "finance",
         "category": "corporate-card",
@@ -71,10 +67,7 @@ QUESTIONS = [
         "question": "법인카드 한도를 초과해서 결제할 수 있나요?",
         "answer_article": "",
         "keyword": "임의로 초과",
-        "ground_truth": (
-            "카드 한도는 직무와 예산에 따라 정해지며, "
-            "임의로 초과 사용할 수 없다."
-        ),
+        "ground_truth": ("카드 한도는 직무와 예산에 따라 정해지며, 임의로 초과 사용할 수 없다."),
         "department": "finance",
         "category": "corporate-card",
         "out_of_scope": False,
@@ -88,8 +81,7 @@ QUESTIONS = [
         "answer_article": "",
         "keyword": "5영업일",
         "ground_truth": (
-            "임직원은 경비 발생일이 속한 달의 다음 달 5영업일까지 "
-            "경비 정산을 제출해야 한다."
+            "임직원은 경비 발생일이 속한 달의 다음 달 5영업일까지 경비 정산을 제출해야 한다."
         ),
         "department": "finance",
         "category": "expense",
@@ -148,10 +140,7 @@ QUESTIONS = [
         "question": "고객 접대 식사에서 현금 선물을 줘도 되나요?",
         "answer_article": "",
         "keyword": "인정하지 않",
-        "ground_truth": (
-            "현금성 선물, 고가 주류, 사행성 장소, 가족 동반 비용은 "
-            "인정하지 않는다."
-        ),
+        "ground_truth": ("현금성 선물, 고가 주류, 사행성 장소, 가족 동반 비용은 인정하지 않는다."),
         "department": "finance",
         "category": "meal-entertainment",
         "out_of_scope": False,
@@ -196,8 +185,7 @@ QUESTIONS = [
         "answer_article": "",
         "keyword": "5영업일",
         "ground_truth": (
-            "구매 요청자는 필요한 사용일 최소 5영업일 전까지 "
-            "구매 요청서를 제출해야 한다."
+            "구매 요청자는 필요한 사용일 최소 5영업일 전까지 구매 요청서를 제출해야 한다."
         ),
         "department": "finance",
         "category": "procurement",
@@ -225,10 +213,7 @@ QUESTIONS = [
         "question": "승인 전에 먼저 주문하면 어떻게 되나요?",
         "answer_article": "",
         "keyword": "반려",
-        "ground_truth": (
-            "승인 전 구매자가 임의로 발주하거나 결제하면 비용 처리가 "
-            "반려될 수 있다."
-        ),
+        "ground_truth": ("승인 전 구매자가 임의로 발주하거나 결제하면 비용 처리가 반려될 수 있다."),
         "department": "finance",
         "category": "procurement",
         "out_of_scope": False,
@@ -257,10 +242,7 @@ QUESTIONS = [
         "question": "출장비 정산서는 출장 후 며칠 안에 내야 하나요?",
         "answer_article": "",
         "keyword": "5영업일",
-        "ground_truth": (
-            "출장자는 출장 종료일로부터 5영업일 이내에 출장비 정산을 "
-            "제출해야 한다."
-        ),
+        "ground_truth": ("출장자는 출장 종료일로부터 5영업일 이내에 출장비 정산을 제출해야 한다."),
         "department": "finance",
         "category": "travel",
         "out_of_scope": False,
@@ -273,8 +255,7 @@ QUESTIONS = [
         "answer_article": "",
         "keyword": "5영업일 전",
         "ground_truth": (
-            "선지급 신청은 출장 시작 5영업일 전까지 제출하며 "
-            "예상 비용 산출 근거를 첨부한다."
+            "선지급 신청은 출장 시작 5영업일 전까지 제출하며 예상 비용 산출 근거를 첨부한다."
         ),
         "department": "finance",
         "category": "travel",
@@ -317,8 +298,7 @@ QUESTIONS = [
         "answer_article": "",
         "keyword": "인정하지 않",
         "ground_truth": (
-            "개인 PC, 개인 클라우드, 개인 이메일 보관함은 공식 "
-            "보존 위치로 인정하지 않는다."
+            "개인 PC, 개인 클라우드, 개인 이메일 보관함은 공식 보존 위치로 인정하지 않는다."
         ),
         "department": "general",
         "category": "document-retention",
@@ -348,8 +328,7 @@ QUESTIONS = [
         "answer_article": "",
         "keyword": "즉시 취소",
         "ground_truth": (
-            "회의가 취소되거나 장소가 변경되면 예약자는 즉시 캘린더 "
-            "예약을 취소해야 한다."
+            "회의가 취소되거나 장소가 변경되면 예약자는 즉시 캘린더 예약을 취소해야 한다."
         ),
         "department": "general",
         "category": "meeting-room",
@@ -410,10 +389,7 @@ QUESTIONS = [
         "question": "팀장은 연차 신청 후 며칠 안에 승인해야 하나요?",
         "answer_article": "",
         "keyword": "1영업일",
-        "ground_truth": (
-            "팀장은 신청일로부터 1영업일 이내에 승인 또는 반려 사유를 "
-            "기록해야 한다."
-        ),
+        "ground_truth": ("팀장은 신청일로부터 1영업일 이내에 승인 또는 반려 사유를 기록해야 한다."),
         "department": "hr",
         "category": "leave",
         "out_of_scope": False,
@@ -442,8 +418,7 @@ QUESTIONS = [
         "answer_article": "",
         "keyword": "4시간",
         "ground_truth": (
-            "오전 반차는 근무 시작 시각부터 4시간, 오후 반차는 근무 "
-            "종료 전 4시간을 기준으로 한다."
+            "오전 반차는 근무 시작 시각부터 4시간, 오후 반차는 근무 종료 전 4시간을 기준으로 한다."
         ),
         "department": "hr",
         "category": "leave",
@@ -572,10 +547,7 @@ QUESTIONS = [
         "question": "업무 기기를 분실했을 때 누구에게 신고해야 하나요?",
         "answer_article": "",
         "keyword": "보안 부서",
-        "ground_truth": (
-            "임직원은 발견 즉시 팀장, IT 헬프데스크, 보안 부서에 "
-            "신고해야 한다."
-        ),
+        "ground_truth": ("임직원은 발견 즉시 팀장, IT 헬프데스크, 보안 부서에 신고해야 한다."),
         "department": "security",
         "category": "device-security",
         "out_of_scope": False,
@@ -587,10 +559,7 @@ QUESTIONS = [
         "question": "모르는 USB를 회사 노트북에 꽂아도 되나요?",
         "answer_article": "",
         "keyword": "금지",
-        "ground_truth": (
-            "알 수 없는 출처의 USB나 충전 장치를 업무 기기에 연결해서는 "
-            "안 된다."
-        ),
+        "ground_truth": ("알 수 없는 출처의 USB나 충전 장치를 업무 기기에 연결해서는 안 된다."),
         "department": "security",
         "category": "device-security",
         "out_of_scope": False,
