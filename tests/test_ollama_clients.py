@@ -161,7 +161,7 @@ def test_chat_qwen_sends_separate_messages_guard_flags_and_options(monkeypatch):
         num_predict=512,
     )
 
-    assert content == "The policy says to submit it 3 days ahead."
+    assert content["content"] == "The policy says to submit it 3 days ahead."
     assert calls[0][0] == "http://ollama.test/api/chat"
     request_json = calls[0][1]
     assert request_json["model"] == "qwen3.6:latest"
@@ -225,3 +225,57 @@ def test_chat_qwen_error_includes_endpoint_path_and_model(monkeypatch):
     message = str(exc_info.value)
     assert "/api/chat" in message
     assert "qwen3.6:latest" in message
+
+
+def test_chat_qwen_returns_eval_metadata_for_token_metrics(monkeypatch):
+    def fake_post(url, *, json, timeout):
+        return FakeResponse(
+            {
+                "message": {"content": "answer text"},
+                "eval_count": 42,
+                "eval_duration": 1_500_000_000,  # 1.5초 (나노초)
+                "prompt_eval_count": 10,
+                "total_duration": 2_000_000_000,
+            }
+        )
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    result = qwen_module().chat_qwen(
+        "http://ollama.test",
+        "qwen3.6:latest",
+        "system prompt",
+        "user prompt",
+        temperature=0.2,
+        num_ctx=4096,
+        num_predict=512,
+    )
+
+    assert result["content"] == "answer text"
+    assert result["eval_count"] == 42
+    assert result["eval_duration_ns"] == 1_500_000_000
+    assert result["prompt_eval_count"] == 10
+    assert result["total_duration_ns"] == 2_000_000_000
+
+
+def test_chat_qwen_handles_missing_eval_metadata_gracefully(monkeypatch):
+    """일부 Ollama 버전이나 모델은 eval_count 등을 응답에 포함하지 않을 수 있음"""
+
+    def fake_post(url, *, json, timeout):
+        return FakeResponse({"message": {"content": "answer without metadata"}})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    result = qwen_module().chat_qwen(
+        "http://ollama.test",
+        "qwen3.6:latest",
+        "system prompt",
+        "user prompt",
+        temperature=0.2,
+        num_ctx=4096,
+        num_predict=512,
+    )
+
+    assert result["content"] == "answer without metadata"
+    assert result["eval_count"] is None
+    assert result["eval_duration_ns"] is None
