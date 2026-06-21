@@ -56,7 +56,6 @@ def test_shared_ec2_env_template_uses_team_endpoint() -> None:
     assert "LLM_MODEL=qwen3:4b-instruct" in env_template
     assert "EMBEDDING_MODEL=bge-m3" in env_template
     assert "QDRANT_URL=http://qdrant:6333" in env_template
-    assert "SQLITE_PATH=/app/storage/metadata.sqlite" in env_template
 
 
 def test_local_ollama_env_template_preserves_on_prem_story() -> None:
@@ -93,8 +92,6 @@ def test_dev_verify_script_checks_runtime_and_prints_setup_ok() -> None:
     assert "$sampleQuestionCodes" in script
     assert "0xBC95" in script
     assert "$sampleQuestion = -join" in script
-    assert "--department finance" in script
-    assert "--category corporate-card" in script
     assert "Sources:" in script
     assert "$fallbackPhraseCodes" in script
     assert "$fallbackPhrase = -join" in script

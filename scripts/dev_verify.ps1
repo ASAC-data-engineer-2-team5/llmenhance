@@ -114,7 +114,7 @@ $process = $null
 try {
     $processStartInfo = New-Object System.Diagnostics.ProcessStartInfo
     $processStartInfo.FileName = "docker"
-    $processStartInfo.Arguments = "compose run --rm rag-api python scripts/ask_rag.py `"$sampleQuestion`" --department finance --category corporate-card --top-k 3 --timing"
+    $processStartInfo.Arguments = "compose run --rm rag-api python scripts/ask_rag.py `"$sampleQuestion`" --top-k 3 --timing"
     $processStartInfo.RedirectStandardOutput = $true
     $processStartInfo.RedirectStandardError = $true
     $processStartInfo.UseShellExecute = $false
