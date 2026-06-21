@@ -401,9 +401,7 @@ def test_answer_question_reports_timing_events_on_grounded_path(monkeypatch):
         "Parent expansion",
         "Qwen generation",
     ]
-    assert [event[1] for event in timing_events] == pytest.approx(
-        [0.35, 0.01, 0.08, 0.01, 2.00]
-    )
+    assert [event[1] for event in timing_events] == pytest.approx([0.35, 0.01, 0.08, 0.01, 2.00])
 
 
 def test_answer_question_reports_only_completed_timing_on_search_fallback(monkeypatch):
