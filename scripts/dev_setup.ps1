@@ -145,7 +145,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "docker compose up failed."
 }
 
-Write-Step "Rebuilding local SQLite and Qdrant indexes from datasets/docs"
+Write-Step "Rebuilding the Qdrant index from datasets/docs"
 docker compose run --rm rag-api python scripts/ingest_md.py datasets/docs --reset
 if ($LASTEXITCODE -ne 0) {
     throw "Document ingestion failed."

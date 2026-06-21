@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -5,6 +6,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def read_repo_file(path: str) -> str:
     return (REPO_ROOT / path).read_text(encoding="utf-8")
+
+
+def decode_powershell_char_codes(script: str, variable_name: str) -> str:
+    match = re.search(rf"\${variable_name}\s*=\s*@\((.*?)\)", script, re.DOTALL)
+    assert match is not None
+    codes = re.findall(r"0x[0-9A-Fa-f]+", match.group(1))
+    return "".join(chr(int(code, 16)) for code in codes)
 
 
 def test_readme_has_agent_setup_quickstart_contract() -> None:
@@ -56,7 +64,6 @@ def test_shared_ec2_env_template_uses_team_endpoint() -> None:
     assert "LLM_MODEL=qwen3:4b-instruct" in env_template
     assert "EMBEDDING_MODEL=bge-m3" in env_template
     assert "QDRANT_URL=http://qdrant:6333" in env_template
-    assert "SQLITE_PATH=/app/storage/metadata.sqlite" in env_template
 
 
 def test_local_ollama_env_template_preserves_on_prem_story() -> None:
@@ -93,13 +100,19 @@ def test_dev_verify_script_checks_runtime_and_prints_setup_ok() -> None:
     assert "$sampleQuestionCodes" in script
     assert "0xBC95" in script
     assert "$sampleQuestion = -join" in script
-    assert "--department finance" in script
-    assert "--category corporate-card" in script
     assert "Sources:" in script
     assert "$fallbackPhraseCodes" in script
     assert "$fallbackPhrase = -join" in script
     assert "$ragText.Contains($fallbackPhrase)" in script
     assert "SETUP_OK" in script
+
+
+def test_dev_verify_sample_question_is_confirmed_by_current_corpus() -> None:
+    script = read_repo_file("scripts/dev_verify.ps1")
+
+    assert decode_powershell_char_codes(script, "sampleQuestionCodes") == (
+        "법인카드 사용 후 전표 처리는 언제까지 해야 하나요?"
+    )
 
 
 def test_dev_verify_allows_docker_status_stderr_during_sample_question() -> None:

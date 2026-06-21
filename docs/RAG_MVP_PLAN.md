@@ -1,5 +1,11 @@
 # RAG MVP Plan
 
+> Historical note: this document records the initial SQLite + chunk-overlap MVP plan.
+> The current PR #10 code path uses `datasets/docs/regulations.md`, structure-aware
+> parent-child chunking, Qdrant payload metadata, dense+sparse hybrid search, and
+> parent(조) expansion. Use `README.md`, `docs/LOCAL_SETUP.md`, and `AGENTS.md`
+> for current setup and runtime guidance.
+
 ## Goal
 
 Qwen3.6이 로컬 Markdown 문서를 RAG로 검색해서, 검색된 근거 chunk만 기반으로 답변하는 최소 기능을 만든다.

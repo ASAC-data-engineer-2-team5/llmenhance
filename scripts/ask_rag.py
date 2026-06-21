@@ -20,14 +20,34 @@ def _timing_logger(enabled: bool):
     return log_timing
 
 
+def _parse_filters(pairs: list[str]) -> dict[str, str]:
+    """--filter KEY=VALUE 들을 payload 메타데이터 필터 dict 로 변환한다."""
+    metadata_filter: dict[str, str] = {}
+    for pair in pairs:
+        if "=" not in pair:
+            raise ValueError(f"--filter must be KEY=VALUE, got {pair!r}")
+        key, value = pair.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key or not value:
+            raise ValueError(f"--filter must be KEY=VALUE, got {pair!r}")
+        metadata_filter[key] = value
+    return metadata_filter
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Ask the local Qwen RAG pipeline.")
     parser.add_argument("question")
-    parser.add_argument("--doc-type", default=None)
-    parser.add_argument("--department", default=None)
-    parser.add_argument("--category", default=None)
-    parser.add_argument("--security-level", default=None)
-    parser.add_argument("--source-path", default=None)
+    parser.add_argument(
+        "--filter",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help=(
+            "payload 메타데이터 동등 비교 필터 (반복 가능). "
+            "예: --filter jang='제2장 휴가' --filter department=hr"
+        ),
+    )
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument(
         "--timing",
@@ -36,15 +56,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    metadata_filter = _parse_filters(args.filter)
     settings = Settings.from_env()
+    resolved_top_k = settings.retrieval_top_k if args.top_k is None else args.top_k
     result = answer_question(
         args.question,
-        args.doc_type,
-        args.department,
-        args.category,
-        args.security_level,
-        args.source_path,
-        args.top_k or settings.retrieval_top_k,
+        resolved_top_k,
+        metadata_filter=metadata_filter or None,
         settings=settings,
         progress=lambda message: print(message, file=sys.stderr),
         timing=_timing_logger(args.timing),

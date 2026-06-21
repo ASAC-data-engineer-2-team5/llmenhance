@@ -5,7 +5,7 @@ The default team profile is `shared-ec2`.
 ```text
 local repo + Docker Compose
 -> local Qdrant
--> local SQLite metadata
+-> local Qdrant payload metadata + parent expansion
 -> shared EC2 Ollama API
 -> qwen3:4b-instruct + bge-m3
 ```

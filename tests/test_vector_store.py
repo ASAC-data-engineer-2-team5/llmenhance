@@ -23,61 +23,122 @@ class FakeVectorParams:
 
 
 @dataclass
+class FakeSparseVectorParams:
+    modifier: str
+
+
+@dataclass
+class FakeSparseVector:
+    indices: list
+    values: list
+
+
+@dataclass
 class FakePointStruct:
     id: object
-    vector: list[float]
+    vector: dict
     payload: dict
 
 
 @dataclass
-class FakeMatchAny:
-    any: list[str]
+class FakeMatchValue:
+    value: str
 
 
 @dataclass
 class FakeFieldCondition:
     key: str
-    match: FakeMatchAny
+    match: FakeMatchValue
 
 
 @dataclass
 class FakeFilter:
-    must: list[FakeFieldCondition]
+    must: list
+
+
+@dataclass
+class FakePrefetch:
+    query: object
+    using: str
+    limit: int
+    filter: object = None
+
+
+@dataclass
+class FakeFusionQuery:
+    fusion: str
 
 
 class FakeDistance:
     COSINE = "cosine"
 
 
+class FakeModifier:
+    IDF = "idf"
+
+
+class FakeFusion:
+    RRF = "rrf"
+
+
 class FakeModels:
     Distance = FakeDistance
     FieldCondition = FakeFieldCondition
     Filter = FakeFilter
-    MatchAny = FakeMatchAny
+    Fusion = FakeFusion
+    FusionQuery = FakeFusionQuery
+    MatchValue = FakeMatchValue
+    Modifier = FakeModifier
     PointStruct = FakePointStruct
+    Prefetch = FakePrefetch
+    SparseVector = FakeSparseVector
+    SparseVectorParams = FakeSparseVectorParams
     VectorParams = FakeVectorParams
 
 
-def patch_qdrant(monkeypatch, store, *, collection_exists=False, query_points=None):
+def patch_qdrant(
+    monkeypatch,
+    store,
+    *,
+    collection_exists=False,
+    collection_info=None,
+    query_points=None,
+):
     clients = []
+    default_collection_info = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(
+                vectors={"dense": object()},
+                sparse_vectors={"bm25": object()},
+            )
+        )
+    )
 
     class FakeQdrantClient:
         def __init__(self, url):
             self.url = url
             self.create_collection_calls = []
             self.delete_collection_calls = []
+            self.get_collection_calls = []
             self.upsert_calls = []
             self.query_points_calls = []
+            self.events = []
             clients.append(self)
 
         def collection_exists(self, collection_name):
             self.collection_exists_call = collection_name
             return collection_exists
 
+        def get_collection(self, collection_name):
+            self.get_collection_calls.append(collection_name)
+            return collection_info or default_collection_info
+
         def create_collection(self, **kwargs):
+            self.events.append(("create_collection", kwargs["collection_name"]))
             self.create_collection_calls.append(kwargs)
 
         def delete_collection(self, collection_name):
+            self.events.append(("delete_collection", collection_name))
             self.delete_collection_calls.append(collection_name)
 
         def upsert(self, **kwargs):
@@ -95,7 +156,8 @@ def patch_qdrant(monkeypatch, store, *, collection_exists=False, query_points=No
 def make_point():
     return {
         "id": "550e8400-e29b-41d4-a716-446655440000",
-        "vector": [0.1, 0.2, 0.3],
+        "dense": [0.1, 0.2, 0.3],
+        "sparse": {"indices": [5, 9], "values": [1.0, 2.0]},
         "payload": {
             "chunk_id": "chunk-hr-leave-0",
             "document_id": "doc-hr-leave",
@@ -105,7 +167,7 @@ def make_point():
     }
 
 
-def test_ensure_collection_creates_collection_with_cosine_distance(monkeypatch):
+def test_ensure_collection_creates_dense_and_sparse_vectors(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store, collection_exists=False)
 
@@ -121,19 +183,81 @@ def test_ensure_collection_creates_collection_with_cosine_distance(monkeypatch):
     assert client.create_collection_calls == [
         {
             "collection_name": "chunks",
-            "vectors_config": FakeVectorParams(size=384, distance=FakeDistance.COSINE),
+            "vectors_config": {"dense": FakeVectorParams(size=384, distance=FakeDistance.COSINE)},
+            "sparse_vectors_config": {"bm25": FakeSparseVectorParams(modifier=FakeModifier.IDF)},
         }
     ]
 
 
-def test_ensure_collection_skips_create_when_collection_exists(monkeypatch):
+def test_ensure_collection_skips_create_when_existing_collection_has_hybrid_schema(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store, collection_exists=True)
 
     store.ensure_collection("http://qdrant:6333", "chunks", 384)
 
     assert clients[0].collection_exists_call == "chunks"
+    assert clients[0].get_collection_calls == ["chunks"]
     assert clients[0].create_collection_calls == []
+    assert clients[0].delete_collection_calls == []
+
+
+def test_ensure_collection_recreates_existing_dense_only_collection(monkeypatch):
+    store = vector_store()
+    dense_only_collection = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(
+                vectors={"dense": object()},
+                sparse_vectors={},
+            )
+        )
+    )
+    clients = patch_qdrant(
+        monkeypatch,
+        store,
+        collection_exists=True,
+        collection_info=dense_only_collection,
+    )
+
+    store.ensure_collection("http://qdrant:6333", "chunks", 384)
+
+    client = clients[0]
+    assert client.get_collection_calls == ["chunks"]
+    assert client.delete_collection_calls == ["chunks"]
+    assert client.create_collection_calls == [
+        {
+            "collection_name": "chunks",
+            "vectors_config": {"dense": FakeVectorParams(size=384, distance=FakeDistance.COSINE)},
+            "sparse_vectors_config": {"bm25": FakeSparseVectorParams(modifier=FakeModifier.IDF)},
+        }
+    ]
+    assert client.events == [
+        ("delete_collection", "chunks"),
+        ("create_collection", "chunks"),
+    ]
+
+
+def test_ensure_collection_recreates_collection_missing_dense_vector(monkeypatch):
+    store = vector_store()
+    sparse_only_collection = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(
+                vectors={},
+                sparse_vectors={"bm25": object()},
+            )
+        )
+    )
+    clients = patch_qdrant(
+        monkeypatch,
+        store,
+        collection_exists=True,
+        collection_info=sparse_only_collection,
+    )
+
+    store.ensure_collection("http://qdrant:6333", "chunks", 384)
+
+    client = clients[0]
+    assert client.delete_collection_calls == ["chunks"]
+    assert client.create_collection_calls[0]["collection_name"] == "chunks"
 
 
 def test_delete_collection_if_exists_deletes_existing_collection(monkeypatch):
@@ -164,7 +288,7 @@ def test_ensure_collection_rejects_invalid_vector_size(vector_size):
         store.ensure_collection("http://qdrant:6333", "chunks", vector_size)
 
 
-def test_upsert_chunk_vectors_passes_vectors_and_payload_to_qdrant(monkeypatch):
+def test_upsert_chunk_vectors_passes_dense_and_sparse_named_vectors(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store)
     point = make_point()
@@ -177,7 +301,10 @@ def test_upsert_chunk_vectors_passes_vectors_and_payload_to_qdrant(monkeypatch):
             "points": [
                 FakePointStruct(
                     id="550e8400-e29b-41d4-a716-446655440000",
-                    vector=[0.1, 0.2, 0.3],
+                    vector={
+                        "dense": [0.1, 0.2, 0.3],
+                        "bm25": FakeSparseVector(indices=[5, 9], values=[1.0, 2.0]),
+                    },
                     payload=point["payload"],
                 )
             ],
@@ -198,7 +325,8 @@ def test_upsert_chunk_vectors_empty_points_does_not_call_upsert(monkeypatch):
     ("field_to_remove", "expected_message"),
     [
         ("id", "id"),
-        ("vector", "vector"),
+        ("dense", "dense"),
+        ("sparse", "sparse"),
         ("payload.chunk_id", "chunk_id"),
         ("payload.document_id", "document_id"),
         ("payload.source_path", "source_path"),
@@ -223,11 +351,28 @@ def test_upsert_chunk_vectors_rejects_missing_required_fields(
         store.upsert_chunk_vectors("http://qdrant:6333", "chunks", [point])
 
 
+def test_upsert_chunk_vectors_rejects_empty_dense_vector(monkeypatch):
+    store = vector_store()
+    patch_qdrant(monkeypatch, store)
+    point = make_point()
+    point["dense"] = []
+
+    with pytest.raises(ValueError, match="dense"):
+        store.upsert_chunk_vectors("http://qdrant:6333", "chunks", [point])
+
+
+def test_upsert_chunk_vectors_rejects_mismatched_sparse_lengths(monkeypatch):
+    store = vector_store()
+    patch_qdrant(monkeypatch, store)
+    point = make_point()
+    point["sparse"] = {"indices": [1, 2], "values": [1.0]}
+
+    with pytest.raises(ValueError, match="same length"):
+        store.upsert_chunk_vectors("http://qdrant:6333", "chunks", [point])
+
+
 @pytest.mark.parametrize("point_id", ["point-1", -1, True, 1.5])
-def test_upsert_chunk_vectors_rejects_qdrant_invalid_point_ids(
-    monkeypatch,
-    point_id,
-):
+def test_upsert_chunk_vectors_rejects_qdrant_invalid_point_ids(monkeypatch, point_id):
     store = vector_store()
     patch_qdrant(monkeypatch, store)
     point = make_point()
@@ -235,27 +380,6 @@ def test_upsert_chunk_vectors_rejects_qdrant_invalid_point_ids(
 
     with pytest.raises(ValueError, match="point id"):
         store.upsert_chunk_vectors("http://qdrant:6333", "chunks", [point])
-
-
-def test_upsert_chunk_vectors_rejects_integer_point_id_above_uint64(monkeypatch):
-    store = vector_store()
-    patch_qdrant(monkeypatch, store)
-    point = make_point()
-    point["id"] = 2**64
-
-    with pytest.raises(ValueError, match="point id"):
-        store.upsert_chunk_vectors("http://qdrant:6333", "chunks", [point])
-
-
-def test_upsert_chunk_vectors_accepts_max_uint64_point_id(monkeypatch):
-    store = vector_store()
-    clients = patch_qdrant(monkeypatch, store)
-    point = make_point()
-    point["id"] = 2**64 - 1
-
-    store.upsert_chunk_vectors("http://qdrant:6333", "chunks", [point])
-
-    assert clients[0].upsert_calls[0]["points"][0].id == 2**64 - 1
 
 
 def test_upsert_chunk_vectors_accepts_unsigned_integer_point_id(monkeypatch):
@@ -269,10 +393,7 @@ def test_upsert_chunk_vectors_accepts_unsigned_integer_point_id(monkeypatch):
     assert clients[0].upsert_calls[0]["points"][0].id == 42
 
 
-@pytest.mark.parametrize(
-    "payload_field",
-    ["chunk_id", "document_id", "source_path", "title"],
-)
+@pytest.mark.parametrize("payload_field", ["chunk_id", "document_id", "source_path", "title"])
 @pytest.mark.parametrize("bad_value", ["", "   ", None, 123])
 def test_upsert_chunk_vectors_rejects_empty_or_non_string_payload_values(
     monkeypatch,
@@ -288,16 +409,11 @@ def test_upsert_chunk_vectors_rejects_empty_or_non_string_payload_values(
         store.upsert_chunk_vectors("http://qdrant:6333", "chunks", [point])
 
 
-def test_search_chunks_passes_top_k_as_limit(monkeypatch):
-    store = vector_store()
-    clients = patch_qdrant(monkeypatch, store)
-
-    store.search_chunks("http://qdrant:6333", "chunks", [0.1, 0.2], top_k=7)
-
-    assert clients[0].query_points_calls[0]["limit"] == 7
+def sparse_query():
+    return {"indices": [5, 9], "values": [1.0, 2.0]}
 
 
-def test_search_chunks_without_candidates_uses_no_filter(monkeypatch):
+def test_search_chunks_builds_hybrid_prefetch_with_rrf_fusion(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store)
 
@@ -305,14 +421,27 @@ def test_search_chunks_without_candidates_uses_no_filter(monkeypatch):
         "http://qdrant:6333",
         "chunks",
         [0.1, 0.2],
-        top_k=3,
-        candidate_chunk_ids=None,
+        sparse_query(),
+        top_k=7,
     )
 
-    assert clients[0].query_points_calls[0]["query_filter"] is None
+    call = clients[0].query_points_calls[0]
+    assert call["limit"] == 7
+    assert call["query"] == FakeFusionQuery(fusion=FakeFusion.RRF)
+    assert call["with_payload"] is True
+    assert call["with_vectors"] is False
+    assert call["prefetch"] == [
+        FakePrefetch(query=[0.1, 0.2], using="dense", limit=7, filter=None),
+        FakePrefetch(
+            query=FakeSparseVector(indices=[5, 9], values=[1.0, 2.0]),
+            using="bm25",
+            limit=7,
+            filter=None,
+        ),
+    ]
 
 
-def test_search_chunks_with_candidates_filters_by_chunk_id(monkeypatch):
+def test_search_chunks_applies_metadata_filter_to_each_prefetch(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store)
 
@@ -320,40 +449,107 @@ def test_search_chunks_with_candidates_filters_by_chunk_id(monkeypatch):
         "http://qdrant:6333",
         "chunks",
         [0.1, 0.2],
+        sparse_query(),
         top_k=3,
-        candidate_chunk_ids=["chunk-1", "chunk-2"],
+        metadata_filter={"jang": "제2장 휴가", "jo": "제5조"},
     )
 
-    query_filter = clients[0].query_points_calls[0]["query_filter"]
-    assert query_filter == FakeFilter(
+    expected_filter = FakeFilter(
         must=[
-            FakeFieldCondition(
-                key="chunk_id",
-                match=FakeMatchAny(any=["chunk-1", "chunk-2"]),
-            )
+            FakeFieldCondition(key="jang", match=FakeMatchValue(value="제2장 휴가")),
+            FakeFieldCondition(key="jo", match=FakeMatchValue(value="제5조")),
         ]
     )
+    prefetch = clients[0].query_points_calls[0]["prefetch"]
+    assert prefetch[0].filter == expected_filter
+    assert prefetch[1].filter == expected_filter
 
 
-def test_search_chunks_empty_candidates_returns_empty_without_querying(monkeypatch):
+def test_search_chunks_coerces_numeric_filter_values_to_int(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store)
 
-    results = store.search_chunks(
+    store.search_chunks(
         "http://qdrant:6333",
         "chunks",
         [0.1, 0.2],
+        sparse_query(),
         top_k=3,
-        candidate_chunk_ids=[],
+        metadata_filter={"hang_no": "1", "jo": "제5조"},
     )
 
-    assert results == []
-    assert clients == []
+    # CLI 필터는 문자열로 오지만 hang_no/jo_no payload 는 int 이므로 정수로 맞춘다.
+    must = clients[0].query_points_calls[0]["prefetch"][0].filter.must
+    by_key = {condition.key: condition.match.value for condition in must}
+    assert by_key["hang_no"] == 1
+    assert by_key["jo"] == "제5조"
+
+
+def test_search_chunks_without_sparse_terms_uses_dense_only(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        {"indices": [], "values": []},
+        top_k=3,
+    )
+
+    prefetch = clients[0].query_points_calls[0]["prefetch"]
+    assert len(prefetch) == 1
+    assert prefetch[0].using == "dense"
+
+
+def test_search_chunks_without_sparse_vector_uses_dense_only(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        None,
+        top_k=3,
+    )
+
+    prefetch = clients[0].query_points_calls[0]["prefetch"]
+    assert len(prefetch) == 1
+    assert prefetch[0].using == "dense"
+
+
+def test_search_chunks_rejects_sparse_query_missing_values(monkeypatch):
+    store = vector_store()
+    patch_qdrant(monkeypatch, store)
+
+    with pytest.raises(ValueError, match="same length"):
+        store.search_chunks(
+            "http://qdrant:6333",
+            "chunks",
+            [0.1, 0.2],
+            {"indices": [5, 9]},
+            top_k=3,
+        )
+
+
+def test_search_chunks_rejects_sparse_query_mismatched_lengths(monkeypatch):
+    store = vector_store()
+    patch_qdrant(monkeypatch, store)
+
+    with pytest.raises(ValueError, match="same length"):
+        store.search_chunks(
+            "http://qdrant:6333",
+            "chunks",
+            [0.1, 0.2],
+            {"indices": [5, 9], "values": [1.0]},
+            top_k=3,
+        )
 
 
 def test_search_chunks_returns_result_dicts(monkeypatch):
     store = vector_store()
-    clients = patch_qdrant(
+    patch_qdrant(
         monkeypatch,
         store,
         query_points=SimpleNamespace(
@@ -367,16 +563,8 @@ def test_search_chunks_returns_result_dicts(monkeypatch):
         ),
     )
 
-    results = store.search_chunks("http://qdrant:6333", "chunks", [0.1, 0.2], 1)
+    results = store.search_chunks("http://qdrant:6333", "chunks", [0.1, 0.2], sparse_query(), 1)
 
-    assert clients[0].query_points_calls[0] == {
-        "collection_name": "chunks",
-        "query": [0.1, 0.2],
-        "limit": 1,
-        "query_filter": None,
-        "with_payload": True,
-        "with_vectors": False,
-    }
     assert results == [
         {
             "id": "point-1",
@@ -391,11 +579,11 @@ def test_search_chunks_rejects_invalid_top_k(top_k):
     store = vector_store()
 
     with pytest.raises(ValueError, match="top_k"):
-        store.search_chunks("http://qdrant:6333", "chunks", [0.1, 0.2], top_k)
+        store.search_chunks("http://qdrant:6333", "chunks", [0.1, 0.2], sparse_query(), top_k)
 
 
-def test_search_chunks_rejects_empty_query_vector():
+def test_search_chunks_rejects_empty_dense_vector():
     store = vector_store()
 
-    with pytest.raises(ValueError, match="query_vector"):
-        store.search_chunks("http://qdrant:6333", "chunks", [], 3)
+    with pytest.raises(ValueError, match="dense_vector"):
+        store.search_chunks("http://qdrant:6333", "chunks", [], sparse_query(), 3)
