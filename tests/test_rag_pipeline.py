@@ -290,6 +290,32 @@ def test_answer_question_dedupes_children_sharing_a_parent(monkeypatch):
     ]
 
 
+def test_build_context_trims_low_score_parents_to_fit_prompt_budget():
+    pipeline = rag_pipeline()
+    long_text = "문서 내용 " * 80
+    search_results = [
+        child_hit(
+            score=1.0 - (index * 0.1),
+            parent_id=f"doc:reg::jo-{index}",
+            parent_text=f"제{index}조\n{long_text}",
+            jo=f"제{index}조",
+        )
+        for index in range(1, 6)
+    ]
+
+    parents, user_prompt = pipeline._build_context(
+        "재택근무 승인 절차는 어떻게 되나요?",
+        search_results,
+        5,
+        max_prompt_chars=900,
+    )
+
+    assert len(user_prompt) <= 900
+    assert len(parents) < 5
+    assert parents[0].chunk_id == "doc:reg::jo-1"
+    assert "doc:reg::jo-5" not in user_prompt
+
+
 def test_answer_question_overfetches_children_before_parent_deduping(monkeypatch):
     pipeline = rag_pipeline()
     captured = {}

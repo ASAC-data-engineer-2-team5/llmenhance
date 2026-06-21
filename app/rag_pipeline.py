@@ -27,6 +27,8 @@ TIMING_LABELS = (
     "Qwen generation",
 )
 PARENT_EXPANSION_FETCH_MULTIPLIER = 4
+PROMPT_CHAR_BUDGET_RATIO = 0.95
+MIN_PROMPT_CHAR_BUDGET = 1200
 T = TypeVar("T")
 
 SYSTEM_PROMPT = f"""너는 사내 규정 문서에 근거해서만 답변하는 QA 어시스턴트다.
@@ -122,7 +124,12 @@ def answer_question(
     parents, user_prompt = _run_timed(
         TIMING_LABELS[3],
         timing,
-        lambda: _build_context(interpreted_question, search_results, top_k),
+        lambda: _build_context(
+            interpreted_question,
+            search_results,
+            top_k,
+            max_prompt_chars=_prompt_char_budget(active_settings.num_ctx),
+        ),
     )
     if not parents:
         return _fallback_result()
@@ -181,6 +188,10 @@ def _search_top_k_for_parent_expansion(top_k: int) -> int:
     return top_k * PARENT_EXPANSION_FETCH_MULTIPLIER
 
 
+def _prompt_char_budget(num_ctx: int) -> int:
+    return max(MIN_PROMPT_CHAR_BUDGET, int(num_ctx * PROMPT_CHAR_BUDGET_RATIO))
+
+
 def _fallback_result() -> dict[str, Any]:
     return {"answer": FALLBACK_ANSWER, "sources": []}
 
@@ -189,12 +200,23 @@ def _build_context(
     question: str | InterpretedQuestion,
     search_results: list[dict],
     top_k: int,
+    *,
+    max_prompt_chars: int | None = None,
 ) -> tuple[list[RetrievedParent], str]:
     parents = _expand_to_parents(search_results, top_k)
     if not parents:
         return [], ""
     interpreted_question = _ensure_interpreted_question(question)
-    return parents, _build_user_prompt(interpreted_question, parents)
+    prompt_parents = parents
+    user_prompt = _build_user_prompt(interpreted_question, prompt_parents)
+    while (
+        max_prompt_chars is not None
+        and len(user_prompt) > max_prompt_chars
+        and len(prompt_parents) > 1
+    ):
+        prompt_parents = prompt_parents[:-1]
+        user_prompt = _build_user_prompt(interpreted_question, prompt_parents)
+    return prompt_parents, user_prompt
 
 
 def _expand_to_parents(search_results: list[dict], top_k: int) -> list[RetrievedParent]:
