@@ -14,13 +14,14 @@ This deployment uses AWS for the application runtime while keeping Ollama/Qwen a
 - Port `11434` must not be opened to the internet.
 - Qdrant must not be exposed publicly.
 - The MVP app endpoint is verified through SSM port forwarding first.
+- Temporary public Streamlit exposure is allowed for demos by opening only TCP `8501`.
 
 ## Runtime Shape
 
 ```text
 Tester workstation
--> AWS SSM port forward
--> app EC2 localhost:8501 or localhost:8000
+-> public Streamlit URL or AWS SSM port forward
+-> app EC2 Streamlit:8501 or localhost:8000
 -> Docker Compose streamlit/rag-api/qdrant
 -> existing EC2 Ollama/Qwen model server
 ```
@@ -47,13 +48,19 @@ The Gemini comparison panel is allowed only for internal benchmark sessions.
 
 ## Access
 
-Use Session Manager port forwarding for MVP validation:
+When `streamlit_allowed_cidr_blocks` includes the viewer's IP range, open the public frontend:
+
+```text
+http://<app-public-ip>:8501
+```
+
+Use Session Manager port forwarding for private MVP validation or API checks:
 
 ```bash
 aws ssm start-session \
   --target <app-instance-id> \
   --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["8501"],"localPortNumber":["8501"]}'
+  --parameters "portNumber=8501,localPortNumber=8501"
 ```
 
 Open `http://localhost:8501` on the operator workstation.
@@ -83,7 +90,7 @@ docker compose -f docker-compose.aws.yml up -d --build
 
 ## Public Exposure Gates
 
-Do not expose Streamlit or `/api/ask/qwen` to the public internet until all are complete:
+Do not expose `/api/ask/qwen`, Qdrant, or Ollama to the public internet. For Streamlit, use public exposure only as a temporary MVP demo path until all are complete:
 
 - Authentication exists.
 - HTTPS exists.

@@ -91,6 +91,17 @@ resource "aws_vpc_security_group_egress_rule" "all" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+resource "aws_vpc_security_group_ingress_rule" "streamlit" {
+  for_each = var.streamlit_allowed_cidr_blocks
+
+  security_group_id = aws_security_group.app.id
+  description       = "Streamlit frontend"
+  ip_protocol       = "tcp"
+  from_port         = 8501
+  to_port           = 8501
+  cidr_ipv4         = each.value
+}
+
 resource "aws_instance" "app" {
   ami                         = local.ami_id
   instance_type               = var.instance_type

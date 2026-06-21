@@ -34,7 +34,7 @@ services:
     depends_on:
       - rag-api
     ports:
-      - "127.0.0.1:8501:8501"
+      - "0.0.0.0:8501:8501"
     working_dir: /app
     command: streamlit run frontend/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
     restart: unless-stopped
