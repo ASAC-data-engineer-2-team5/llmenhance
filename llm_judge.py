@@ -52,6 +52,7 @@ LLM-as-Judge: 답변 품질 종합 평가 (RAG 유무 8가지 조합, Claude Son
    docker-compose run --rm rag-api python llm_judge.py --n 10 --runs 3
 =======================================================================
 """
+
 from __future__ import annotations
 
 import argparse
@@ -71,11 +72,12 @@ except ImportError:
     print("boto3 미설치: pip install boto3 --break-system-packages")
     sys.exit(1)
 
+from master_questions import QUESTIONS
+
 from app import metadata_store
 from app.config import Settings
 from app.qwen_client import chat_qwen
 from app.rag_pipeline import answer_question
-from master_questions import QUESTIONS
 
 settings = Settings.from_env()
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
@@ -86,8 +88,7 @@ GPTOSS_MODEL = "openai.gpt-oss-20b-1:0"
 GEMINI_MODEL = "gemini-2.5-flash"
 
 NO_RAG_SYSTEM_PROMPT = (
-    "너는 사내 규정에 대해 답변하는 챗봇이다. "
-    "아는 한도 내에서만 답변하고, 모르면 모른다고 답하라."
+    "너는 사내 규정에 대해 답변하는 챗봇이다. 아는 한도 내에서만 답변하고, 모르면 모른다고 답하라."
 )
 
 JUDGE_PROMPT = """다음 사내 규정 챗봇의 답변을 종합 평가하라.
@@ -151,9 +152,7 @@ def build_rag_prompt_for_comparison(question: str, sources: list[dict]) -> str:
         if not chunk_text:
             continue
         context_parts.append(
-            f"[source {i}]\n"
-            f"source_path: {s.get('source_path', '')}\n"
-            f"content:\n{chunk_text}"
+            f"[source {i}]\nsource_path: {s.get('source_path', '')}\ncontent:\n{chunk_text}"
         )
 
     if not context_parts:
@@ -164,18 +163,26 @@ def build_rag_prompt_for_comparison(question: str, sources: list[dict]) -> str:
 
 
 # ── Qwen 호출 (RAG 없음, 대조군) ───────────────────────
-def call_qwen_no_rag(question: str) -> str:
-    """RAG 컨텍스트 없이 Qwen에게 질문만 직접 전달한다 (대조군)."""
-    chat_result = chat_qwen(
-        settings.ollama_base_url,
-        settings.llm_model,
-        NO_RAG_SYSTEM_PROMPT,
-        question,
-        settings.temperature,
-        settings.num_ctx,
-        settings.num_predict,
-    )
-    return chat_result["content"].strip()
+def call_qwen_no_rag(question: str) -> str | None:
+    """RAG 컨텍스트 없이 Qwen에게 질문만 직접 전달한다 (대조군).
+    chat_qwen()은 {"content": ..., "eval_count": ...} 형태의 dict를
+    반환한다(model-benchmark PR에서 토큰 메타데이터 포함하도록 변경됨).
+    실패 시 None을 반환해 다른 provider 호출 함수들과 동일한 실패
+    처리 계약을 따른다."""
+    try:
+        chat_result = chat_qwen(
+            settings.ollama_base_url,
+            settings.llm_model,
+            NO_RAG_SYSTEM_PROMPT,
+            question,
+            settings.temperature,
+            settings.num_ctx,
+            settings.num_predict,
+        )
+        return chat_result["content"].strip()
+    except Exception as e:
+        print(f"    Qwen(RAG 없음) 호출 실패: {e}")
+        return None
 
 
 # ── 실제 Gemini 호출 ───────────────────────────────────
@@ -189,9 +196,7 @@ def call_gemini_real(prompt: str) -> str | None:
             return None
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content(
-            prompt, request_options={"timeout": 60}
-        )
+        response = model.generate_content(prompt, request_options={"timeout": 60})
         return response.text
     except Exception as e:
         print(f"    Gemini 호출 실패: {e}")
@@ -203,11 +208,13 @@ def call_claude_real(prompt: str) -> str | None:
     """프롬프트를 Claude Haiku(Bedrock)에 실제 전송, 답변 텍스트를 반환한다."""
     try:
         client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 512,
-            "messages": [{"role": "user", "content": prompt}],
-        })
+        body = json.dumps(
+            {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 512,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
         response = client.invoke_model(modelId=CLAUDE_COMPARE_MODEL, body=body)
         result = json.loads(response["body"].read())
         return result["content"][0]["text"]
@@ -223,10 +230,12 @@ def call_gptoss_real(prompt: str) -> str | None:
         client = boto3.client("bedrock-runtime", region_name=AWS_REGION)
         response = client.invoke_model(
             modelId=GPTOSS_MODEL,
-            body=json.dumps({
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 512,
-            }),
+            body=json.dumps(
+                {
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 512,
+                }
+            ),
         )
         body = json.loads(response["body"].read())
         usage = body.get("usage", {})
@@ -250,9 +259,12 @@ def judge_answer(client, item: dict, answer: str | None) -> dict:
     """answer가 None(호출 실패)이면 채점하지 않고 None 항목으로 반환한다."""
     if answer is None:
         return {
-            "content_correct": None, "hallucination_free": None,
-            "department_appropriate": None, "terms_compliant": None,
-            "length_appropriate": None, "score": None,
+            "content_correct": None,
+            "hallucination_free": None,
+            "department_appropriate": None,
+            "terms_compliant": None,
+            "length_appropriate": None,
+            "score": None,
             "reason": "답변 생성 실패 (API 호출 오류 등)",
         }
 
@@ -263,12 +275,14 @@ def judge_answer(client, item: dict, answer: str | None) -> dict:
         out_of_scope=item["out_of_scope"],
     )
     try:
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 500,
-            "temperature": 0,
-            "messages": [{"role": "user", "content": prompt}],
-        })
+        body = json.dumps(
+            {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 500,
+                "temperature": 0,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
         response = client.invoke_model(modelId=JUDGE_MODEL, body=body)
         result = json.loads(response["body"].read())
         text = result["content"][0]["text"].strip()
@@ -276,9 +290,12 @@ def judge_answer(client, item: dict, answer: str | None) -> dict:
         return json.loads(text)
     except Exception as e:
         return {
-            "content_correct": None, "hallucination_free": None,
-            "department_appropriate": None, "terms_compliant": None,
-            "length_appropriate": None, "score": None,
+            "content_correct": None,
+            "hallucination_free": None,
+            "department_appropriate": None,
+            "terms_compliant": None,
+            "length_appropriate": None,
+            "score": None,
             "reason": f"채점 오류: {e}",
         }
 
@@ -286,14 +303,25 @@ def judge_answer(client, item: dict, answer: str | None) -> dict:
 # ── 질문 1개에 대해 8가지 조합 답변 생성 + 채점 ────────
 def evaluate_one(judge_client, item: dict) -> dict:
     """질문 1개에 대해 8가지 조합의 답변을 생성하고, 각각을
-    Claude Sonnet으로 채점한다."""
-    rag_result = answer_question(
-        item["question"], doc_type=None,
-        department=item["department"], category=item["category"],
-        security_level=None, source_path=None, top_k=5, settings=settings,
-    )
-    qwen_rag_answer = rag_result["answer"]
-    sources = rag_result.get("sources", [])
+    Claude Sonnet으로 채점한다. Qwen RAG 호출이 실패해도 전체 실행이
+    중단되지 않도록 None으로 처리하고 다음 조합으로 계속 진행한다."""
+    try:
+        rag_result = answer_question(
+            item["question"],
+            doc_type=None,
+            department=item["department"],
+            category=item["category"],
+            security_level=None,
+            source_path=None,
+            top_k=settings.retrieval_top_k,
+            settings=settings,
+        )
+        qwen_rag_answer = rag_result["answer"]
+        sources = rag_result.get("sources", [])
+    except Exception as e:
+        print(f"    Qwen RAG 호출 실패: {e}")
+        qwen_rag_answer = None
+        sources = []
 
     qwen_norag_answer = call_qwen_no_rag(item["question"])
 
@@ -310,13 +338,12 @@ def evaluate_one(judge_client, item: dict) -> dict:
         "gemini_rag": call_gemini_real(rag_prompt),
     }
 
-    judged = {
-        combo: judge_answer(judge_client, item, answer)
-        for combo, answer in answers.items()
-    }
+    judged = {combo: judge_answer(judge_client, item, answer) for combo, answer in answers.items()}
 
     return {
-        "id": item["id"], "type": item["type"], "question": item["question"],
+        "id": item["id"],
+        "type": item["type"],
+        "question": item["question"],
         "ground_truth": item["ground_truth"],
         "answers": {k: (v[:150] + "..." if v else None) for k, v in answers.items()},
         "judged": judged,
@@ -334,8 +361,10 @@ def run_judge_once(judge_client, questions: list[dict], combos: list[str]):
         for combo in combos:
             score = r["judged"][combo].get("score")
             status = (
-                "✅" if score is not None and score >= 80
-                else "⚠️" if score and score >= 40
+                "✅"
+                if score is not None and score >= 80
+                else "⚠️"
+                if score and score >= 40
                 else "❌"
             )
             print(f"  {status} {combo:15s} score={score}")
@@ -349,7 +378,9 @@ def run_judge(n_questions: int, n_runs: int = 1):
         print(".env에 AWS 자격증명을 추가한 후 다시 실행하세요.")
         return
 
-    questions = [q for q in QUESTIONS if not q["out_of_scope"] and q["ground_truth"]]
+    # ground_truth가 있는 일반 질문 + out_of_scope인 범위 밖 질문(hallucination
+    # 테스트용) 둘 다 포함한다. 둘 다 해당 없는 애매한 데이터만 제외한다.
+    questions = [q for q in QUESTIONS if q["ground_truth"] or q["out_of_scope"]]
     questions = questions[:n_questions]
 
     if not questions:
@@ -363,10 +394,14 @@ def run_judge(n_questions: int, n_runs: int = 1):
 
     judge_client = get_judge_client()
     combos = [
-        "qwen_norag", "qwen_rag",
-        "claude_norag", "claude_rag",
-        "gptoss_norag", "gptoss_rag",
-        "gemini_norag", "gemini_rag",
+        "qwen_norag",
+        "qwen_rag",
+        "claude_norag",
+        "claude_rag",
+        "gptoss_norag",
+        "gptoss_rag",
+        "gemini_norag",
+        "gemini_rag",
     ]
 
     all_runs = []
@@ -387,7 +422,8 @@ def run_judge(n_questions: int, n_runs: int = 1):
         total_n = 0
         for run_results in all_runs:
             scores = [
-                r["judged"][combo]["score"] for r in run_results
+                r["judged"][combo]["score"]
+                for r in run_results
                 if r["judged"][combo].get("score") is not None
             ]
             if scores:
@@ -414,7 +450,8 @@ def run_judge(n_questions: int, n_runs: int = 1):
         norag = summary.get(f"{model}_norag", {}).get("avg_score")
         rag = summary.get(f"{model}_rag", {}).get("avg_score")
         if norag is not None and rag is not None:
-            print(f"{model:10s}: {norag:.1f} → {rag:.1f}  (+{rag - norag:.1f})")
+            diff = rag - norag
+            print(f"{model:10s}: {norag:.1f} → {rag:.1f}  ({diff:+.1f})")
 
     # ── 결과 저장 (최신본 + 타임스탬프 누적) ────────────
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -432,7 +469,7 @@ def run_judge(n_questions: int, n_runs: int = 1):
     with open(f"judge_results_{timestamp}.json", "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
-    print(f"\n저장 완료: judge_results.json (최신)")
+    print("\n저장 완료: judge_results.json (최신)")
     print(f"저장 완료: judge_results_{timestamp}.json (누적 기록)")
 
 
