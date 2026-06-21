@@ -160,12 +160,8 @@ def test_ensure_collection_creates_dense_and_sparse_vectors(monkeypatch):
     assert client.create_collection_calls == [
         {
             "collection_name": "chunks",
-            "vectors_config": {
-                "dense": FakeVectorParams(size=384, distance=FakeDistance.COSINE)
-            },
-            "sparse_vectors_config": {
-                "bm25": FakeSparseVectorParams(modifier=FakeModifier.IDF)
-            },
+            "vectors_config": {"dense": FakeVectorParams(size=384, distance=FakeDistance.COSINE)},
+            "sparse_vectors_config": {"bm25": FakeSparseVectorParams(modifier=FakeModifier.IDF)},
         }
     ]
 

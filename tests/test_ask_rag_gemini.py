@@ -115,9 +115,7 @@ def test_ask_rag_gemini_cli_uses_existing_retrieval_and_gemini_generation(
     assert "Answer:" in captured_output.out
     assert "재무팀과 팀장에게 보고" in captured_output.out
     assert "Sources:" in captured_output.out
-    assert (
-        "- datasets/docs/regulations.md#doc:reg::jo-30 (score: 0.91)"
-    ) in captured_output.out
+    assert ("- datasets/docs/regulations.md#doc:reg::jo-30 (score: 0.91)") in captured_output.out
     assert "[4/4] Generating answer with Gemini..." in captured_output.err
     assert "[timing] Gemini generation:" in captured_output.err
 

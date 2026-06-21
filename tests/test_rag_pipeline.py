@@ -48,8 +48,7 @@ def child_hit(score=0.91, *, parent_id="doc:reg::jo-1", parent_text=None, **over
         "path": "제1편 총칙 > 제1장 일반 > 제1절 통칙 > 제1조",
         "hang_no": 1,
         "text": "연차 신청은 최소 3영업일 전까지 해야 한다.",
-        "parent_text": parent_text
-        or "제1조 (연차)\n① 연차 신청은 최소 3영업일 전까지 해야 한다.",
+        "parent_text": parent_text or "제1조 (연차)\n① 연차 신청은 최소 3영업일 전까지 해야 한다.",
     }
     payload.update(overrides)
     return {"score": score, "payload": payload}

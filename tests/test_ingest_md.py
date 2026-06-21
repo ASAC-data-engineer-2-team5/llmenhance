@@ -200,9 +200,7 @@ def test_ingest_directory_reset_clears_qdrant_before_reindex(tmp_path, monkeypat
         "embed_text",
         lambda base_url, model, text: events.append(("embed_text", text)) or [1.0, 0.2, 0.3],
     )
-    monkeypatch.setattr(
-        ingest, "text_to_sparse", lambda text: {"indices": [1], "values": [1.0]}
-    )
+    monkeypatch.setattr(ingest, "text_to_sparse", lambda text: {"indices": [1], "values": [1.0]})
     monkeypatch.setattr(
         ingest,
         "delete_collection_if_exists",
@@ -239,9 +237,9 @@ def test_ingest_directory_reset_clears_qdrant_before_reindex(tmp_path, monkeypat
     assert events.index(
         ("delete_collection_if_exists", "http://qdrant.test", "chunks")
     ) < events.index(("ensure_collection", "http://qdrant.test", "chunks", 3))
-    assert events.index(
-        ("ensure_collection", "http://qdrant.test", "chunks", 3)
-    ) < events.index(("upsert_chunk_vectors", "http://qdrant.test", "chunks", 2))
+    assert events.index(("ensure_collection", "http://qdrant.test", "chunks", 3)) < events.index(
+        ("upsert_chunk_vectors", "http://qdrant.test", "chunks", 2)
+    )
 
 
 def test_ingest_cli_passes_reset_flag(monkeypatch):
