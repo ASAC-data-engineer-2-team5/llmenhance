@@ -147,7 +147,9 @@ def test_chat_qwen_sends_separate_messages_guard_flags_and_options(monkeypatch):
 
     def fake_post(url, *, json, timeout):
         calls.append((url, json, timeout))
-        return FakeResponse({"message": {"content": "The policy says to submit it 3 days ahead."}})
+        return FakeResponse(
+            {"message": {"content": "The policy says to submit it 3 days ahead."}}
+        )
 
     monkeypatch.setattr(httpx, "post", fake_post)
 
@@ -244,8 +246,8 @@ def test_chat_qwen_returns_eval_metadata_for_token_metrics(monkeypatch):
     result = qwen_module().chat_qwen(
         "http://ollama.test",
         "qwen3.6:latest",
-        "system prompt",
-        "user prompt",
+        "Answer only from retrieved internal policy chunks.",
+        "How many days in advance should remote work be requested?",
         temperature=0.2,
         num_ctx=4096,
         num_predict=512,
@@ -269,8 +271,8 @@ def test_chat_qwen_handles_missing_eval_metadata_gracefully(monkeypatch):
     result = qwen_module().chat_qwen(
         "http://ollama.test",
         "qwen3.6:latest",
-        "system prompt",
-        "user prompt",
+        "Answer only from retrieved internal policy chunks.",
+        "What is the expense reimbursement deadline?",
         temperature=0.2,
         num_ctx=4096,
         num_predict=512,
