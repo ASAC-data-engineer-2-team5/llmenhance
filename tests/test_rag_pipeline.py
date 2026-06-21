@@ -483,6 +483,22 @@ def test_ask_rag_cli_parses_filter_pairs_into_metadata_filter(monkeypatch):
     assert captured["metadata_filter"] == {"jang": "제2장 휴가", "department": "hr"}
 
 
+def test_ask_rag_cli_preserves_explicit_zero_top_k(monkeypatch):
+    cli = ask_rag()
+    captured = {}
+
+    def fake_answer_question(question, top_k, **kwargs):
+        captured["top_k"] = top_k
+        return {"answer": "답변", "sources": []}
+
+    monkeypatch.setattr(cli, "answer_question", fake_answer_question)
+
+    exit_code = cli.main(["질문", "--top-k", "0"])
+
+    assert exit_code == 0
+    assert captured["top_k"] == 0
+
+
 def test_ask_rag_cli_rejects_malformed_filter(monkeypatch):
     cli = ask_rag()
     monkeypatch.setattr(

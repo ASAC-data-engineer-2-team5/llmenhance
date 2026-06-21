@@ -269,3 +269,22 @@ def test_repository_regulations_corpus_is_present_and_dense():
     # The corpus must stay dense enough to exercise chunking and retrieval.
     assert len(body.split()) >= 1000
     assert len(body) >= 1500
+
+    required_policy_topics = {
+        "연차": ("연차", "연차 유급휴가"),
+        "재택근무": ("재택근무",),
+        "출장비": ("출장", "출장비"),
+        "경비 처리": ("경비", "증빙", "전표"),
+        "온보딩": ("온보딩", "입사", "신규 입사"),
+        "개인정보": ("개인정보",),
+        "보안": ("보안", "VPN", "접근"),
+    }
+    missing_topics = [
+        topic
+        for topic, terms in required_policy_topics.items()
+        if not any(term in body for term in terms)
+    ]
+    assert not missing_topics, f"Missing required policy topics: {missing_topics}"
+
+    for marker in ("제1편", "제1장", "제1절", "제1조", "①"):
+        assert marker in body

@@ -58,9 +58,10 @@ def main(argv: list[str] | None = None) -> int:
 
     metadata_filter = _parse_filters(args.filter)
     settings = Settings.from_env()
+    resolved_top_k = settings.retrieval_top_k if args.top_k is None else args.top_k
     result = answer_question(
         args.question,
-        args.top_k or settings.retrieval_top_k,
+        resolved_top_k,
         metadata_filter=metadata_filter or None,
         settings=settings,
         progress=lambda message: print(message, file=sys.stderr),

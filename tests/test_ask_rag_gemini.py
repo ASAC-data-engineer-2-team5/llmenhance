@@ -141,3 +141,34 @@ def test_ask_rag_gemini_cli_requires_project(monkeypatch):
         cli.main(["법인카드를 분실하면 어떻게 해야 하나요?"])
 
     assert exc_info.value.code == 2
+
+
+def test_ask_rag_gemini_cli_preserves_explicit_zero_numeric_args(monkeypatch):
+    cli = ask_rag_gemini()
+    settings = make_settings()
+    captured = {}
+
+    monkeypatch.setattr(cli.Settings, "from_env", lambda: settings)
+
+    def fake_answer_question_with_gemini(question, top_k, **kwargs):
+        captured["top_k"] = top_k
+        captured["max_output_tokens"] = kwargs["max_output_tokens"]
+        return {"answer": "답변", "sources": []}
+
+    monkeypatch.setattr(cli, "answer_question_with_gemini", fake_answer_question_with_gemini)
+
+    exit_code = cli.main(
+        [
+            "질문",
+            "--project",
+            "project-123",
+            "--top-k",
+            "0",
+            "--max-output-tokens",
+            "0",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["top_k"] == 0
+    assert captured["max_output_tokens"] == 0

@@ -13,22 +13,23 @@ SAMPLE = """# 제1편 총칙
 
 ### 제1절 통칙
 
-**제1조 (목적)**
+**제1조 (연차 및 재택근무 원칙)**
 
 ① [정의 및 목적]
-본 규정의 목적은 가나다이다.
-1. 첫째 항목
-2. 둘째 항목
+본 규정의 목적은 연차 신청, 재택근무 승인, 개인정보 및 보안 준수 기준을 정하는 것이다.
+1. 연차 신청 기준
+2. 재택근무 승인 절차
 
 ② [적용 대상]
 모든 임직원에게 적용된다.
+출장비 정산과 경비 처리 증빙, 온보딩 보안 교육에도 적용된다.
 
 ---
 
 **제2조 (용어)**
 
 ① [정의]
-용어를 정의한다.
+출장비, 경비 처리, 개인정보, VPN 보안 용어를 정의한다.
 """
 
 
@@ -50,11 +51,11 @@ def test_parse_structure_extracts_pyeon_jang_jeol_jo_hangs():
     assert first["jeol"] == "제1절 통칙"
     assert first["jo"] == "제1조"
     assert first["jo_no"] == 1
-    assert first["jo_title"] == "목적"
+    assert first["jo_title"] == "연차 및 재택근무 원칙"
     assert len(first["hangs"]) == 2
     assert first["hangs"][0]["hang_no"] == 1
     assert first["hangs"][0]["label"] == "정의 및 목적"
-    assert "첫째 항목" in first["hangs"][0]["text"]
+    assert "연차 신청 기준" in first["hangs"][0]["text"]
 
 
 def test_records_to_chunks_builds_parent_per_jo_and_child_per_hang():
@@ -72,7 +73,7 @@ def test_records_to_chunks_builds_parent_per_jo_and_child_per_hang():
     assert first_child["metadata"]["path"] == "제1편 총칙 > 제1장 일반 > 제1절 통칙 > 제1조"
 
     first_parent = parents[0]
-    assert "제1조 (목적)" in first_parent["text"]
+    assert "제1조 (연차 및 재택근무 원칙)" in first_parent["text"]
     assert "모든 임직원에게 적용된다." in first_parent["text"]
 
 

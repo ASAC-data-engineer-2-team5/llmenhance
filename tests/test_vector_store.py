@@ -96,26 +96,49 @@ class FakeModels:
     VectorParams = FakeVectorParams
 
 
-def patch_qdrant(monkeypatch, store, *, collection_exists=False, query_points=None):
+def patch_qdrant(
+    monkeypatch,
+    store,
+    *,
+    collection_exists=False,
+    collection_info=None,
+    query_points=None,
+):
     clients = []
+    default_collection_info = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(
+                vectors={"dense": object()},
+                sparse_vectors={"bm25": object()},
+            )
+        )
+    )
 
     class FakeQdrantClient:
         def __init__(self, url):
             self.url = url
             self.create_collection_calls = []
             self.delete_collection_calls = []
+            self.get_collection_calls = []
             self.upsert_calls = []
             self.query_points_calls = []
+            self.events = []
             clients.append(self)
 
         def collection_exists(self, collection_name):
             self.collection_exists_call = collection_name
             return collection_exists
 
+        def get_collection(self, collection_name):
+            self.get_collection_calls.append(collection_name)
+            return collection_info or default_collection_info
+
         def create_collection(self, **kwargs):
+            self.events.append(("create_collection", kwargs["collection_name"]))
             self.create_collection_calls.append(kwargs)
 
         def delete_collection(self, collection_name):
+            self.events.append(("delete_collection", collection_name))
             self.delete_collection_calls.append(collection_name)
 
         def upsert(self, **kwargs):
@@ -166,14 +189,75 @@ def test_ensure_collection_creates_dense_and_sparse_vectors(monkeypatch):
     ]
 
 
-def test_ensure_collection_skips_create_when_collection_exists(monkeypatch):
+def test_ensure_collection_skips_create_when_existing_collection_has_hybrid_schema(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store, collection_exists=True)
 
     store.ensure_collection("http://qdrant:6333", "chunks", 384)
 
     assert clients[0].collection_exists_call == "chunks"
+    assert clients[0].get_collection_calls == ["chunks"]
     assert clients[0].create_collection_calls == []
+    assert clients[0].delete_collection_calls == []
+
+
+def test_ensure_collection_recreates_existing_dense_only_collection(monkeypatch):
+    store = vector_store()
+    dense_only_collection = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(
+                vectors={"dense": object()},
+                sparse_vectors={},
+            )
+        )
+    )
+    clients = patch_qdrant(
+        monkeypatch,
+        store,
+        collection_exists=True,
+        collection_info=dense_only_collection,
+    )
+
+    store.ensure_collection("http://qdrant:6333", "chunks", 384)
+
+    client = clients[0]
+    assert client.get_collection_calls == ["chunks"]
+    assert client.delete_collection_calls == ["chunks"]
+    assert client.create_collection_calls == [
+        {
+            "collection_name": "chunks",
+            "vectors_config": {"dense": FakeVectorParams(size=384, distance=FakeDistance.COSINE)},
+            "sparse_vectors_config": {"bm25": FakeSparseVectorParams(modifier=FakeModifier.IDF)},
+        }
+    ]
+    assert client.events == [
+        ("delete_collection", "chunks"),
+        ("create_collection", "chunks"),
+    ]
+
+
+def test_ensure_collection_recreates_collection_missing_dense_vector(monkeypatch):
+    store = vector_store()
+    sparse_only_collection = SimpleNamespace(
+        config=SimpleNamespace(
+            params=SimpleNamespace(
+                vectors={},
+                sparse_vectors={"bm25": object()},
+            )
+        )
+    )
+    clients = patch_qdrant(
+        monkeypatch,
+        store,
+        collection_exists=True,
+        collection_info=sparse_only_collection,
+    )
+
+    store.ensure_collection("http://qdrant:6333", "chunks", 384)
+
+    client = clients[0]
+    assert client.delete_collection_calls == ["chunks"]
+    assert client.create_collection_calls[0]["collection_name"] == "chunks"
 
 
 def test_delete_collection_if_exists_deletes_existing_collection(monkeypatch):
@@ -416,6 +500,51 @@ def test_search_chunks_without_sparse_terms_uses_dense_only(monkeypatch):
     prefetch = clients[0].query_points_calls[0]["prefetch"]
     assert len(prefetch) == 1
     assert prefetch[0].using == "dense"
+
+
+def test_search_chunks_without_sparse_vector_uses_dense_only(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        None,
+        top_k=3,
+    )
+
+    prefetch = clients[0].query_points_calls[0]["prefetch"]
+    assert len(prefetch) == 1
+    assert prefetch[0].using == "dense"
+
+
+def test_search_chunks_rejects_sparse_query_missing_values(monkeypatch):
+    store = vector_store()
+    patch_qdrant(monkeypatch, store)
+
+    with pytest.raises(ValueError, match="same length"):
+        store.search_chunks(
+            "http://qdrant:6333",
+            "chunks",
+            [0.1, 0.2],
+            {"indices": [5, 9]},
+            top_k=3,
+        )
+
+
+def test_search_chunks_rejects_sparse_query_mismatched_lengths(monkeypatch):
+    store = vector_store()
+    patch_qdrant(monkeypatch, store)
+
+    with pytest.raises(ValueError, match="same length"):
+        store.search_chunks(
+            "http://qdrant:6333",
+            "chunks",
+            [0.1, 0.2],
+            {"indices": [5, 9], "values": [1.0]},
+            top_k=3,
+        )
 
 
 def test_search_chunks_returns_result_dicts(monkeypatch):

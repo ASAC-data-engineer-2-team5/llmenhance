@@ -80,14 +80,18 @@ def main(argv: list[str] | None = None) -> int:
 
     metadata_filter = _parse_filters(args.filter)
     settings = Settings.from_env()
+    resolved_top_k = settings.retrieval_top_k if args.top_k is None else args.top_k
+    resolved_max_output_tokens = (
+        settings.num_predict if args.max_output_tokens is None else args.max_output_tokens
+    )
     result = answer_question_with_gemini(
         args.question,
-        args.top_k or settings.retrieval_top_k,
+        resolved_top_k,
         metadata_filter=metadata_filter or None,
         project=args.project,
         location=args.location,
         model=args.model,
-        max_output_tokens=args.max_output_tokens or settings.num_predict,
+        max_output_tokens=resolved_max_output_tokens,
         thinking_budget=args.thinking_budget,
         settings=settings,
         progress=lambda message: print(message, file=sys.stderr),

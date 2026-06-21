@@ -16,8 +16,15 @@ def ensure_collection(qdrant_url: str, collection_name: str, vector_size: int) -
 
     client = QdrantClient(url=qdrant_url)
     if client.collection_exists(collection_name):
-        return
+        collection = client.get_collection(collection_name)
+        if _has_required_hybrid_schema(collection):
+            return
+        client.delete_collection(collection_name=collection_name)
 
+    _create_collection(client, collection_name, vector_size)
+
+
+def _create_collection(client, collection_name: str, vector_size: int) -> None:
     client.create_collection(
         collection_name=collection_name,
         vectors_config={
@@ -73,7 +80,7 @@ def search_chunks(
     qdrant_url: str,
     collection_name: str,
     dense_vector: list[float],
-    sparse_vector: dict[str, list],
+    sparse_vector: dict[str, list] | None,
     top_k: int,
     metadata_filter: dict[str, str] | None = None,
 ) -> list[dict]:
@@ -84,6 +91,7 @@ def search_chunks(
         raise ValueError("dense_vector must not be empty")
 
     query_filter = _build_filter(metadata_filter)
+    sparse_indices, sparse_values = _validate_sparse_query_vector(sparse_vector)
 
     prefetch = [
         models.Prefetch(
@@ -93,12 +101,12 @@ def search_chunks(
             filter=query_filter,
         )
     ]
-    if sparse_vector and sparse_vector.get("indices"):
+    if sparse_indices:
         prefetch.append(
             models.Prefetch(
                 query=models.SparseVector(
-                    indices=sparse_vector["indices"],
-                    values=sparse_vector["values"],
+                    indices=sparse_indices,
+                    values=sparse_values,
                 ),
                 using=SPARSE_VECTOR_NAME,
                 limit=top_k,
@@ -126,6 +134,24 @@ def search_chunks(
     ]
 
 
+def _has_required_hybrid_schema(collection) -> bool:
+    params = getattr(getattr(collection, "config", None), "params", None)
+    vectors = getattr(params, "vectors", None)
+    sparse_vectors = getattr(params, "sparse_vectors", None)
+    if sparse_vectors is None:
+        sparse_vectors = getattr(params, "sparse_vectors_config", None)
+
+    return _has_named_vector(vectors, DENSE_VECTOR_NAME) and _has_named_vector(
+        sparse_vectors, SPARSE_VECTOR_NAME
+    )
+
+
+def _has_named_vector(vector_config, vector_name: str) -> bool:
+    if isinstance(vector_config, dict):
+        return vector_name in vector_config
+    return hasattr(vector_config, vector_name)
+
+
 def _build_filter(metadata_filter: dict[str, str] | None):
     if not metadata_filter:
         return None
@@ -148,6 +174,21 @@ def _coerce_filter_value(value):
         except ValueError:
             return value
     return value
+
+
+def _validate_sparse_query_vector(
+    sparse_vector: dict[str, list] | None,
+) -> tuple[list, list]:
+    if not sparse_vector:
+        return [], []
+    if not isinstance(sparse_vector, dict):
+        raise ValueError("sparse_vector must be a dict with 'indices' and 'values'")
+
+    indices = sparse_vector.get("indices", [])
+    values = sparse_vector.get("values", [])
+    if len(indices) != len(values):
+        raise ValueError("sparse_vector 'indices' and 'values' must be the same length")
+    return indices, values
 
 
 def _validate_point(point: dict) -> None:
