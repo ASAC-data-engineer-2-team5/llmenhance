@@ -51,6 +51,9 @@ jobs:
       - name: Terraform validate MVP
         run: terraform -chdir=infra/terraform/envs/mvp validate
 
+      - name: Prepare Compose env file
+        run: cp .env.aws-ec2.example .env
+
       - name: Validate AWS Docker Compose file
         run: docker compose -f docker-compose.aws.yml config --quiet
 
