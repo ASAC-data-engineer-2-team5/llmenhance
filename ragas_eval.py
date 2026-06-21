@@ -44,6 +44,7 @@ import json
 import os
 import statistics
 import sys
+import math
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
@@ -209,6 +210,11 @@ def analyze_by_type(df, metric_name):
         else:
             print(f"    {t}: 채점 실패 (n=0)")
 
+def _safe_round(value, ndigits: int = 3):
+    """NaN을 JSON 직렬화 가능한 None으로 변환한다."""
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    return round(value, ndigits)
 
 def run_ragas(dataset, judge_name: str, n_runs: int = 1):
     if not dataset:
@@ -274,7 +280,9 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
             },
             "by_type": {
                 metric: {
-                    t: round(last_df[last_df["type"] == t][metric].dropna().mean(), 3)
+                    t: _safe_round(
+                        last_df[last_df["type"] == t][metric].dropna().mean()
+                    )
                     for t in sorted(last_df["type"].unique())
                 }
                 for metric in ["faithfulness", "answer_relevancy", "context_recall"]
@@ -282,9 +290,9 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
         }
 
         with open(f"ragas_results_{judge_name}.json", "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+            json.dump(result, f, ensure_ascii=False, indent=2, allow_nan=False)
         with open(f"ragas_results_{judge_name}_{timestamp}.json", "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+            json.dump(result, f, ensure_ascii=False, indent=2, allow_nan=False)
 
         print(f"\n저장 완료: ragas_results_{judge_name}.json (최신)")
         print(f"저장 완료: ragas_results_{judge_name}_{timestamp}.json (누적 기록)")
@@ -330,9 +338,9 @@ def run_manual_eval(dataset, judge_name="manual"):
         "note": "RAGAS 미사용, 수동 평가",
     }
     with open(f"ragas_results_{judge_name}.json", "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
+        json.dump(result, f, indent=2, allow_nan=False)
     with open(f"ragas_results_{judge_name}_{timestamp}.json", "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
+        json.dump(result, f, indent=2, allow_nan=False)
     print("\n저장 완료")
 
 
