@@ -238,6 +238,9 @@ def _check_qdrant(qdrant_url: str) -> ServiceStatus:
 
 
 def _check_gemini() -> ServiceStatus:
+    if not _gemini_endpoint_enabled():
+        return ServiceStatus(status="ok", detail="Gemini endpoint disabled.")
+
     project = _gemini_project()
     model = os.getenv("GEMINI_MODEL", _DEFAULT_GEMINI_MODEL)
     if not project:

@@ -156,6 +156,7 @@ def test_check_gemini_warns_when_credential_file_is_missing(monkeypatch, tmp_pat
     server = server_module()
     missing_path = tmp_path / "missing-sa.json"
 
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "project-123")
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(missing_path))
 
@@ -163,3 +164,16 @@ def test_check_gemini_warns_when_credential_file_is_missing(monkeypatch, tmp_pat
 
     assert status.status == "warning"
     assert "credential" in status.detail.lower()
+
+
+def test_check_gemini_reports_disabled_by_default(monkeypatch):
+    server = server_module()
+
+    monkeypatch.delenv("ENABLE_GEMINI_ENDPOINT", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+
+    status = server._check_gemini()
+
+    assert status.status == "ok"
+    assert "disabled" in status.detail.lower()
