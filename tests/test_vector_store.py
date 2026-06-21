@@ -381,6 +381,26 @@ def test_search_chunks_applies_metadata_filter_to_each_prefetch(monkeypatch):
     assert prefetch[1].filter == expected_filter
 
 
+def test_search_chunks_coerces_numeric_filter_values_to_int(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        sparse_query(),
+        top_k=3,
+        metadata_filter={"hang_no": "1", "jo": "제5조"},
+    )
+
+    # CLI 필터는 문자열로 오지만 hang_no/jo_no payload 는 int 이므로 정수로 맞춘다.
+    must = clients[0].query_points_calls[0]["prefetch"][0].filter.must
+    by_key = {condition.key: condition.match.value for condition in must}
+    assert by_key["hang_no"] == 1
+    assert by_key["jo"] == "제5조"
+
+
 def test_search_chunks_without_sparse_terms_uses_dense_only(monkeypatch):
     store = vector_store()
     clients = patch_qdrant(monkeypatch, store)

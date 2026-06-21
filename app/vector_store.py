@@ -131,10 +131,23 @@ def _build_filter(metadata_filter: dict[str, str] | None):
         return None
     return models.Filter(
         must=[
-            models.FieldCondition(key=key, match=models.MatchValue(value=value))
+            models.FieldCondition(
+                key=key, match=models.MatchValue(value=_coerce_filter_value(value))
+            )
             for key, value in metadata_filter.items()
         ]
     )
+
+
+def _coerce_filter_value(value):
+    """CLI 필터는 문자열로 들어오지만 jo_no·hang_no 같은 payload 필드는 정수다.
+    정수로 변환 가능한 문자열은 int 로 맞춰 타입 불일치를 막는다."""
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return value
+    return value
 
 
 def _validate_point(point: dict) -> None:
