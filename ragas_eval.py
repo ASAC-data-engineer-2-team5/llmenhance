@@ -41,10 +41,10 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import math
 import os
 import statistics
 import sys
-import math
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
