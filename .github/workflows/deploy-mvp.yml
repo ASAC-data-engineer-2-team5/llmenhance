@@ -1,0 +1,169 @@
+name: Deploy MVP
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Git branch to deploy"
+        required: true
+        default: "main"
+      apply_terraform:
+        description: "Apply Terraform before deploying app code"
+        required: true
+        type: boolean
+        default: false
+      reindex:
+        description: "Rebuild the Qdrant index from datasets/docs"
+        required: true
+        type: boolean
+        default: true
+      run_verify:
+        description: "Run EC2-local deployment verification"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: llmenhance-mvp-deploy
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+  TF_VAR_ollama_base_url: ${{ vars.OLLAMA_BASE_URL }}
+  TF_VAR_streamlit_allowed_cidr_blocks: ${{ vars.STREAMLIT_ALLOWED_CIDR_BLOCKS || '[]' }}
+  TF_VAR_repo_ref: ${{ inputs.git_ref }}
+
+jobs:
+  deploy:
+    name: deploy MVP app EC2
+    runs-on: ubuntu-latest
+    environment: mvp
+
+    steps:
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+          if [ -z "${{ vars.AWS_ROLE_TO_ASSUME }}" ]; then
+            echo "Repository variable AWS_ROLE_TO_ASSUME is required." >&2
+            exit 1
+          fi
+          if [ -z "${{ vars.TF_STATE_BUCKET }}" ]; then
+            echo "Repository variable TF_STATE_BUCKET is required." >&2
+            exit 1
+          fi
+          if [ -z "${{ vars.OLLAMA_BASE_URL }}" ]; then
+            echo "Repository variable OLLAMA_BASE_URL is required." >&2
+            exit 1
+          fi
+          if ! [[ "${{ inputs.git_ref }}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "git_ref contains unsupported characters." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure Terraform backend
+        working-directory: infra/terraform/envs/mvp
+        run: |
+          cat > backend.hcl <<EOF
+          bucket = "${{ vars.TF_STATE_BUCKET }}"
+          region = "${{ env.AWS_REGION }}"
+          EOF
+
+      - name: Terraform init MVP
+        run: terraform -chdir=infra/terraform/envs/mvp init -backend-config=backend.hcl
+
+      - name: Terraform validate MVP
+        run: terraform -chdir=infra/terraform/envs/mvp validate
+
+      - name: Terraform apply MVP
+        if: ${{ inputs.apply_terraform }}
+        run: terraform -chdir=infra/terraform/envs/mvp apply -auto-approve -input=false
+
+      - name: Resolve app instance id
+        id: app
+        run: |
+          set -euo pipefail
+          app_instance_id="$(terraform -chdir=infra/terraform/envs/mvp output -raw app_instance_id)"
+          echo "instance_id=${app_instance_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy app through SSM
+        env:
+          APP_INSTANCE_ID: ${{ steps.app.outputs.instance_id }}
+          DEPLOY_REF: ${{ inputs.git_ref }}
+          REINDEX: ${{ inputs.reindex }}
+          RUN_VERIFY: ${{ inputs.run_verify }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          commands = [
+              "set -eux",
+              "cd /opt/llmenhance/app",
+              "git fetch --all --prune",
+              f"git checkout {os.environ['DEPLOY_REF']}",
+              f"git pull --ff-only origin {os.environ['DEPLOY_REF']}",
+              "docker compose -f docker-compose.aws.yml up -d --build",
+          ]
+
+          if os.environ["REINDEX"] == "true":
+              commands.append(
+                  "docker compose -f docker-compose.aws.yml run --rm rag-api "
+                  "python scripts/ingest_md.py datasets/docs --reset"
+              )
+
+          if os.environ["RUN_VERIFY"] == "true":
+              commands.append("./scripts/aws_verify.sh")
+
+          with open("/tmp/llmenhance-ssm-deploy.json", "w", encoding="utf-8") as handle:
+              json.dump({"commands": commands}, handle)
+          PY
+
+          command_id="$(
+            aws ssm send-command \
+              --region "${AWS_REGION}" \
+              --instance-ids "${APP_INSTANCE_ID}" \
+              --document-name AWS-RunShellScript \
+              --comment "Deploy llmenhance ${DEPLOY_REF}" \
+              --parameters file:///tmp/llmenhance-ssm-deploy.json \
+              --query 'Command.CommandId' \
+              --output text
+          )"
+
+          set +e
+          aws ssm wait command-executed \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${APP_INSTANCE_ID}"
+          wait_status=$?
+          set -e
+
+          aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${APP_INSTANCE_ID}" \
+            --query '{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}' \
+            --output json
+
+          exit "${wait_status}"
