@@ -249,6 +249,14 @@ def test_answer_question_keeps_original_question_for_retrieval(monkeypatch):
     assert captured["embedded_text"] == "2일 뒤에 연차 신청하려고 하는데 될까요?"
 
 
+def test_system_prompt_instructs_qwen_to_use_canonical_question():
+    pipeline = rag_pipeline()
+
+    assert "canonical_question" in pipeline.SYSTEM_PROMPT
+    assert "original_question" in pipeline.SYSTEM_PROMPT
+    assert "문서에 없는 승인 재량" in pipeline.SYSTEM_PROMPT
+
+
 def test_answer_question_dedupes_children_sharing_a_parent(monkeypatch):
     pipeline = rag_pipeline()
 
