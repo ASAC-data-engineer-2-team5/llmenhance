@@ -20,6 +20,7 @@ PROGRESS_MESSAGES = (
 )
 TIMING_LABELS = (
     "Embedding question",
+    "Sparse vector",
     "Qdrant search",
     "Parent expansion",
     "Qwen generation",
@@ -82,11 +83,15 @@ def answer_question(
             normalized_question,
         ),
     )
-    query_sparse = text_to_sparse(normalized_question)
+    query_sparse = _run_timed(
+        TIMING_LABELS[1],
+        timing,
+        lambda: text_to_sparse(normalized_question),
+    )
 
     _report_progress(progress, 1)
     search_results = _run_timed(
-        TIMING_LABELS[1],
+        TIMING_LABELS[2],
         timing,
         lambda: search_chunks(
             active_settings.qdrant_url,
@@ -102,7 +107,7 @@ def answer_question(
 
     _report_progress(progress, 2)
     parents, user_prompt = _run_timed(
-        TIMING_LABELS[2],
+        TIMING_LABELS[3],
         timing,
         lambda: _build_context(normalized_question, search_results, top_k),
     )
@@ -111,7 +116,7 @@ def answer_question(
 
     _report_progress(progress, 3)
     answer = _run_timed(
-        TIMING_LABELS[3],
+        TIMING_LABELS[4],
         timing,
         lambda: chat_qwen(
             active_settings.ollama_base_url,

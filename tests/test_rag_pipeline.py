@@ -301,7 +301,7 @@ def test_answer_question_reports_four_stage_progress(monkeypatch):
 def test_answer_question_reports_timing_events_on_grounded_path(monkeypatch):
     pipeline = rag_pipeline()
     timing_events = []
-    clock_values = iter([0.00, 0.35, 0.35, 0.43, 0.43, 0.44, 0.44, 2.44])
+    clock_values = iter([0.00, 0.35, 0.35, 0.36, 0.36, 0.44, 0.44, 0.45, 0.45, 2.45])
 
     monkeypatch.setattr(pipeline, "perf_counter", lambda: next(clock_values), raising=False)
     monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
@@ -317,17 +317,20 @@ def test_answer_question_reports_timing_events_on_grounded_path(monkeypatch):
 
     assert [event[0] for event in timing_events] == [
         "Embedding question",
+        "Sparse vector",
         "Qdrant search",
         "Parent expansion",
         "Qwen generation",
     ]
-    assert [event[1] for event in timing_events] == pytest.approx([0.35, 0.08, 0.01, 2.00])
+    assert [event[1] for event in timing_events] == pytest.approx(
+        [0.35, 0.01, 0.08, 0.01, 2.00]
+    )
 
 
 def test_answer_question_reports_only_completed_timing_on_search_fallback(monkeypatch):
     pipeline = rag_pipeline()
     timing_events = []
-    clock_values = iter([1.00, 1.05, 1.05, 1.08])
+    clock_values = iter([1.00, 1.05, 1.05, 1.06, 1.06, 1.09])
 
     monkeypatch.setattr(pipeline, "perf_counter", lambda: next(clock_values), raising=False)
     monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
@@ -342,7 +345,11 @@ def test_answer_question_reports_only_completed_timing_on_search_fallback(monkey
     )
 
     assert result == {"answer": pipeline.FALLBACK_ANSWER, "sources": []}
-    assert [event[0] for event in timing_events] == ["Embedding question", "Qdrant search"]
+    assert [event[0] for event in timing_events] == [
+        "Embedding question",
+        "Sparse vector",
+        "Qdrant search",
+    ]
 
 
 def test_ask_rag_cli_prints_answer_and_sources(monkeypatch, capsys):
