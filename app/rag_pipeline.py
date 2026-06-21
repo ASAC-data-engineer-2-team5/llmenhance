@@ -68,6 +68,7 @@ def answer_question(
     settings: Settings | None = None,
     progress: Callable[[str], None] | None = None,
     timing: Callable[[str, float], None] | None = None,
+    search_mode: str = "hybrid",
 ) -> dict[str, Any]:
     """질문에 대해 grounded 답변 + 출처를 반환한다.
 
@@ -76,6 +77,8 @@ def answer_question(
             (jang, jo, hang_no 등)든 문서 메타데이터(department 등)든 payload 에 있는
             아무 필드나 key-value 로 넘기면 검색을 그 범위로 좁힌다. None/빈 dict 면 전체 검색.
             단일 문서·자연어 질의가 기본인 MVP 에서는 보통 생략한다.
+        search_mode: "dense" | "sparse" | "hybrid". dense/sparse 단독 실험 비교용이며
+            기본값은 운영 경로와 동일한 "hybrid".
     """
     normalized_question = question.strip()
     if not normalized_question:
@@ -115,6 +118,7 @@ def answer_question(
             query_sparse,
             _search_top_k_for_parent_expansion(top_k),
             metadata_filter=metadata_filter or None,
+            mode=search_mode,
         ),
     )
     if not search_results:

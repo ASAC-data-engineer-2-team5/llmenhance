@@ -587,3 +587,70 @@ def test_search_chunks_rejects_empty_dense_vector():
 
     with pytest.raises(ValueError, match="dense_vector"):
         store.search_chunks("http://qdrant:6333", "chunks", [], sparse_query(), 3)
+
+
+def test_search_chunks_dense_mode_only_uses_dense_prefetch(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        sparse_query(),
+        top_k=5,
+        mode="dense",
+    )
+
+    prefetch = clients[0].query_points_calls[0]["prefetch"]
+    assert len(prefetch) == 1
+    assert prefetch[0].using == "dense"
+
+
+def test_search_chunks_sparse_mode_only_uses_sparse_prefetch(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        sparse_query(),
+        top_k=5,
+        mode="sparse",
+    )
+
+    prefetch = clients[0].query_points_calls[0]["prefetch"]
+    assert len(prefetch) == 1
+    assert prefetch[0].using == "bm25"
+
+
+def test_search_chunks_sparse_mode_without_terms_returns_empty_without_querying(monkeypatch):
+    store = vector_store()
+    clients = patch_qdrant(monkeypatch, store)
+
+    results = store.search_chunks(
+        "http://qdrant:6333",
+        "chunks",
+        [0.1, 0.2],
+        {"indices": [], "values": []},
+        top_k=5,
+        mode="sparse",
+    )
+
+    assert results == []
+    assert clients == []
+
+
+def test_search_chunks_rejects_invalid_mode():
+    store = vector_store()
+
+    with pytest.raises(ValueError, match="mode"):
+        store.search_chunks(
+            "http://qdrant:6333",
+            "chunks",
+            [0.1, 0.2],
+            sparse_query(),
+            top_k=3,
+            mode="bogus",
+        )

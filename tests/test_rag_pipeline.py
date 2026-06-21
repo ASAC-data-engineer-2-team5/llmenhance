@@ -148,6 +148,48 @@ def test_answer_question_passes_metadata_filter_to_search(monkeypatch):
     assert set(captured["sparse"]) == {"indices", "values"}
 
 
+@pytest.mark.parametrize("search_mode", ["dense", "sparse", "hybrid"])
+def test_answer_question_passes_search_mode_to_search_chunks(monkeypatch, search_mode):
+    pipeline = rag_pipeline()
+    captured = {}
+
+    monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
+
+    def fake_search_chunks(qdrant_url, collection, dense, sparse, top_k, **kwargs):
+        captured["mode"] = kwargs.get("mode")
+        return [child_hit()]
+
+    monkeypatch.setattr(pipeline, "search_chunks", fake_search_chunks)
+    monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: "답변")
+
+    pipeline.answer_question(
+        "연차 신청은 며칠 전까지 해야 하나요?",
+        5,
+        settings=make_settings(),
+        search_mode=search_mode,
+    )
+
+    assert captured["mode"] == search_mode
+
+
+def test_answer_question_defaults_search_mode_to_hybrid(monkeypatch):
+    pipeline = rag_pipeline()
+    captured = {}
+
+    monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
+
+    def fake_search_chunks(qdrant_url, collection, dense, sparse, top_k, **kwargs):
+        captured["mode"] = kwargs.get("mode")
+        return [child_hit()]
+
+    monkeypatch.setattr(pipeline, "search_chunks", fake_search_chunks)
+    monkeypatch.setattr(pipeline, "chat_qwen", lambda *args, **kwargs: "답변")
+
+    pipeline.answer_question("연차 신청은 며칠 전까지 해야 하나요?", 5, settings=make_settings())
+
+    assert captured["mode"] == "hybrid"
+
+
 def test_answer_question_empty_filter_becomes_none(monkeypatch):
     pipeline = rag_pipeline()
     captured = {}

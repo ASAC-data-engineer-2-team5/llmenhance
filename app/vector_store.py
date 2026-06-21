@@ -9,6 +9,8 @@ MAX_QDRANT_UNSIGNED_INTEGER_ID = 2**64 - 1
 DENSE_VECTOR_NAME = "dense"
 SPARSE_VECTOR_NAME = "bm25"
 
+SEARCH_MODES = ("dense", "sparse", "hybrid")
+
 
 def ensure_collection(qdrant_url: str, collection_name: str, vector_size: int) -> None:
     if vector_size <= 0:
@@ -83,8 +85,14 @@ def search_chunks(
     sparse_vector: dict[str, list] | None,
     top_k: int,
     metadata_filter: dict[str, str] | None = None,
+    mode: str = "hybrid",
 ) -> list[dict]:
-    """dense(bge-m3) + sparse(BM25) 하이브리드 검색을 RRF 로 결합해 반환한다."""
+    """dense(bge-m3) + sparse(BM25) 검색을 RRF 로 결합해 반환한다.
+
+    mode="dense"/"sparse" 는 실험 비교용으로 한쪽 벡터만 사용한다(둘 다 RRF 단일 prefetch).
+    """
+    if mode not in SEARCH_MODES:
+        raise ValueError(f"mode must be one of {SEARCH_MODES}, got {mode!r}")
     if top_k <= 0:
         raise ValueError("top_k must be greater than 0")
     if not dense_vector:
@@ -93,15 +101,20 @@ def search_chunks(
     query_filter = _build_filter(metadata_filter)
     sparse_indices, sparse_values = _validate_sparse_query_vector(sparse_vector)
 
-    prefetch = [
-        models.Prefetch(
-            query=dense_vector,
-            using=DENSE_VECTOR_NAME,
-            limit=top_k,
-            filter=query_filter,
+    if mode == "sparse" and not sparse_indices:
+        return []
+
+    prefetch = []
+    if mode in ("dense", "hybrid"):
+        prefetch.append(
+            models.Prefetch(
+                query=dense_vector,
+                using=DENSE_VECTOR_NAME,
+                limit=top_k,
+                filter=query_filter,
+            )
         )
-    ]
-    if sparse_indices:
+    if mode in ("sparse", "hybrid") and sparse_indices:
         prefetch.append(
             models.Prefetch(
                 query=models.SparseVector(
