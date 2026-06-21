@@ -12,6 +12,7 @@ def test_interprets_eligibility_question_with_lead_time():
     result = interpret_question("2일 뒤에 연차 신청하려고 하는데 될까요?")
 
     assert result.original_question == "2일 뒤에 연차 신청하려고 하는데 될까요?"
+    assert result.retrieval_question == "연차 유급휴가 신청 기한 최소 영업일 전"
     assert result.intent == ELIGIBILITY_CHECK
     assert result.conditions == {"lead_time": "2일 뒤"}
     assert "문서 기준" in result.canonical_question
@@ -29,6 +30,17 @@ def test_interprets_annual_leave_eligibility_as_deadline_check():
     assert "거부" in result.canonical_question
     assert "사용일까지 남은 기간은 2일" in result.canonical_question
     assert "최소 M영업일 전" in result.canonical_question
+
+
+def test_interprets_common_spoken_leave_question_for_retrieval():
+    result = interpret_question("이틀 뒤에 연차신청해도될까요?")
+
+    assert result.original_question == "이틀 뒤에 연차신청해도될까요?"
+    assert result.retrieval_question == "연차 유급휴가 신청 기한 최소 영업일 전"
+    assert result.intent == ELIGIBILITY_CHECK
+    assert result.conditions == {"lead_time": "2일 뒤"}
+    assert "이틀 뒤에 연차신청해도될까요?" in result.canonical_question
+    assert "연차를 2일 뒤에 사용" in result.canonical_question
 
 
 def test_interprets_deadline_lookup_question():

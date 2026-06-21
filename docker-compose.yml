@@ -14,11 +14,31 @@ services:
       - .env
     depends_on:
       - qdrant
+    ports:
+      - "8000:8000"
     volumes:
       - .:/app
       - rag_storage:/app/storage
+      - ${GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH:-./config/google-application-credentials.placeholder.json}:/run/secrets/google-application-credentials.json:ro
     working_dir: /app
-    command: python -m app.healthcheck
+    command: uvicorn app.server:app --host 0.0.0.0 --port 8000 --reload
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      RAG_API_URL: http://rag-api:8000
+    depends_on:
+      - rag-api
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: streamlit run frontend/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
 
 volumes:
   qdrant_data:
