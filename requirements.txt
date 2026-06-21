@@ -4,3 +4,11 @@ pytest
 python-dotenv
 qdrant-client
 pyyaml
+
+ragas==0.1.21
+langchain-aws
+datasets
+boto3
+anthropic[bedrock]
+langchain_google_genai
+psutil
