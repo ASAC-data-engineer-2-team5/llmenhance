@@ -18,7 +18,7 @@ def chat_qwen(
     temperature: float,
     num_ctx: int,
     num_predict: int,
-)  -> dict[str, Any]:
+) -> dict[str, Any]:
     path = "/api/chat"
     request_json = {
         "model": model,

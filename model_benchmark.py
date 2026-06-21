@@ -34,9 +34,16 @@
    docker-compose run --rm rag-api python model_benchmark.py 10   (10문항 평가)
 =======================================================================
 """
+
 from __future__ import annotations
-import time, json, sys, subprocess, os
+
+import json
+import os
+import subprocess
+import sys
+import time
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
 
 try:
@@ -45,17 +52,17 @@ except ImportError:
     print("psutil 미설치: pip install psutil --break-system-packages")
     sys.exit(1)
 
-from master_questions import QUESTIONS
 from app.config import Settings
 from app.rag_pipeline import answer_question
+from master_questions import QUESTIONS
 
 settings = Settings.from_env()
 
 # 가격표 ($/토큰) — 실행 시점에 재확인 권장
 PRICE = {
     "gemini": {"input": 0.075 / 1e6, "output": 0.30 / 1e6},
-    "claude": {"input": 1.00 / 1e6,  "output": 5.00 / 1e6},
-    "gpt-oss": {"input": 0.07 / 1e6,  "output": 0.30 / 1e6},
+    "claude": {"input": 1.00 / 1e6, "output": 5.00 / 1e6},
+    "gpt-oss": {"input": 0.07 / 1e6, "output": 0.30 / 1e6},
 }
 
 # 질문 수 조절: 커맨드라인 인자로 받거나 기본 5개
@@ -69,7 +76,9 @@ def get_vram_usage():
     try:
         result = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             return float(result.stdout.strip().split("\n")[0])
@@ -77,17 +86,23 @@ def get_vram_usage():
         pass
     return None
 
+
 def call_gptoss_real(prompt: str):
     """동일 프롬프트를 gpt-oss-20b(Bedrock)에 실제 전송, (입력토큰, 출력토큰, 비용) 반환"""
     try:
         import boto3
-        client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+
+        client = boto3.client(
+            "bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1")
+        )
         response = client.invoke_model(
             modelId="openai.gpt-oss-20b-1:0",
-            body=json.dumps({
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 512,
-            })
+            body=json.dumps(
+                {
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 512,
+                }
+            ),
         )
         body = json.loads(response["body"].read())
         usage = body.get("usage", {})
@@ -98,12 +113,14 @@ def call_gptoss_real(prompt: str):
     except Exception as e:
         print(f"    gpt-oss 호출 실패: {e}")
         return None
-    
+
+
 # ── 실제 Gemini 호출 (실비용 계산용) ───────────────────
 def call_gemini_real(prompt: str):
     """동일 프롬프트를 Gemini에 실제 전송, (입력토큰, 출력토큰, 비용) 반환"""
     try:
         import google.generativeai as genai
+
         api_key = os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             return None
@@ -124,12 +141,17 @@ def call_claude_real(prompt: str):
     """동일 프롬프트를 Claude(Bedrock)에 실제 전송, (입력토큰, 출력토큰, 비용) 반환"""
     try:
         import boto3
-        client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
-        body = json.dumps({
-            "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 512,
-            "messages": [{"role": "user", "content": prompt}],
-        })
+
+        client = boto3.client(
+            "bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1")
+        )
+        body = json.dumps(
+            {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 512,
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
         response = client.invoke_model(
             modelId="us.anthropic.claude-haiku-4-5-20251001-v1:0",
             body=body,
@@ -153,9 +175,14 @@ def evaluate_one(item):
 
     start = time.time()
     result = answer_question(
-        item["question"], doc_type=None,
-        department=item["department"], category=item["category"],
-        security_level=None, source_path=None, top_k=5, settings=settings,
+        item["question"],
+        doc_type=None,
+        department=item["department"],
+        category=item["category"],
+        security_level=None,
+        source_path=None,
+        top_k=5,
+        settings=settings,
     )
     elapsed = round(time.time() - start, 2)
 
@@ -184,7 +211,8 @@ def evaluate_one(item):
     gpt_real = call_gptoss_real(item["question"])
 
     return {
-        "id": item["id"], "type": item["type"],
+        "id": item["id"],
+        "type": item["type"],
         "question": item["question"],
         "answer": answer,
         "answer_preview": answer[:100] + "...",
@@ -193,10 +221,10 @@ def evaluate_one(item):
         "latency_sec": elapsed,
         "tokens_per_sec": tps,
         "tokens": tokens,
-        "token_source": token_source,   # 실측인지 추정인지
+        "token_source": token_source,  # 실측인지 추정인지
         # 비용 (실호출 기반)
         "cost_local": 0.0,
-        "gemini": gemini_real,   # {"input_tokens","output_tokens","cost"} 또는 None
+        "gemini": gemini_real,  # {"input_tokens","output_tokens","cost"} 또는 None
         "claude": claude_real,
         "gpt": gpt_real,
         # 자원 사용량
@@ -209,9 +237,9 @@ def evaluate_one(item):
 
 
 def run_eval():
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"모델 벤치마크 | {len(EVAL_QUESTIONS)}개 질문")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     vram_available = get_vram_usage() is not None
     if not vram_available:
@@ -228,22 +256,28 @@ def run_eval():
         print(f"  latency: {r['latency_sec']}초 | tps: {r['tokens_per_sec']} ({r['token_source']})")
         if r["gemini"]:
             g = r["gemini"]
-            print(f"  Gemini 실비용: ${g['cost']} (in:{g['input_tokens']} out:{g['output_tokens']})")
+            print(
+                f"  Gemini 실비용: ${g['cost']} (in:{g['input_tokens']} out:{g['output_tokens']})"
+            )
         else:
             print("  Gemini: 호출 실패 또는 GOOGLE_API_KEY 없음")
         if r["claude"]:
             c = r["claude"]
-            print(f"  Claude 실비용: ${c['cost']} (in:{c['input_tokens']} out:{c['output_tokens']})")
+            print(
+                f"  Claude 실비용: ${c['cost']} (in:{c['input_tokens']} out:{c['output_tokens']})"
+            )
         else:
             print("  Claude: 호출 실패 또는 AWS 자격증명 없음")
             # run_eval 함수의 출력/집계 부분에도 claude와 동일하게 gpt 블록 추가
         if r["gpt"]:
             g = r["gpt"]
-            print(f"  GPT 실비용: ${g['cost']} (in:{g['input_tokens']} out:{g['output_tokens']})")
+            print(f"  GPT 실비용: ${g['cost']}(in:{g['input_tokens']} out:{g['output_tokens']})")
         else:
-            print("  GPT: 호출 실패 또는 OPENAI_API_KEY 없음")
-        print(f"  CPU: {r['cpu_percent']}% | RAM: {r['ram_mb']}MB"
-              + (f" | VRAM: {r['vram_mb']}MB" if r['vram_mb'] is not None else ""))
+            print("  GPT: 호출 실패 또는 AWS 자격증명 없음")
+        print(
+            f"  CPU: {r['cpu_percent']}% | RAM: {r['ram_mb']}MB"
+            + (f" | VRAM: {r['vram_mb']}MB" if r["vram_mb"] is not None else "")
+        )
         print(f"  답변: {r['answer'][:200]}...")
 
     # ── 속도 집계 ─────────────────────────────────────
@@ -253,35 +287,36 @@ def run_eval():
     # ── 비용 집계 (실호출 성공한 것만) ──────────────────
     gemini_costs = [r["gemini"]["cost"] for r in all_results if r["gemini"]]
     claude_costs = [r["claude"]["cost"] for r in all_results if r["claude"]]
+    gpt_costs = [r["gpt"]["cost"] for r in all_results if r["gpt"]]
 
     # ── 자원 사용량 집계 ──────────────────────────────
     avg_cpu = sum(r["cpu_percent"] for r in all_results) / len(all_results)
     avg_ram = sum(r["ram_mb"] for r in all_results) / len(all_results)
     max_ram = max(r["ram_mb"] for r in all_results)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("최종 요약")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"평균 latency:     {avg_lat:.2f}초")
     print(f"평균 tokens/sec:  {avg_tps:.1f} (기준: {all_results[0]['token_source']})")
-    print(f"비용 (로컬):       $0.000000")
+    print("비용 (로컬):       $0.000000")
 
     summary = {
-        "avg_latency_sec":    round(avg_lat, 2),
+        "avg_latency_sec": round(avg_lat, 2),
         "avg_tokens_per_sec": round(avg_tps, 1),
         "token_source": all_results[0]["token_source"],
-        "cost_local":         0.0,
-        "avg_cpu_percent":    round(avg_cpu, 1),
-        "avg_ram_mb":         round(avg_ram, 1),
-        "max_ram_mb":         round(max_ram, 1),
-        "vram_available":     vram_available,
+        "cost_local": 0.0,
+        "avg_cpu_percent": round(avg_cpu, 1),
+        "avg_ram_mb": round(avg_ram, 1),
+        "max_ram_mb": round(max_ram, 1),
+        "vram_available": vram_available,
     }
 
     if gemini_costs:
         tg = sum(gemini_costs)
         avg_g = tg / len(gemini_costs)
-        print(f"비용 (Gemini, 평균):  ${avg_g:.6f}  (성공 {len(gemini_costs)}/{len(all_results)}건)")
-        print(f"월 1만건 Gemini:      ${avg_g*10000:.2f}")
+        print(f"비용 (Gemini, 평균):  ${avg_g:.6f} (성공 {len(gemini_costs)}/{len(all_results)}건)")
+        print(f"월 1만건 Gemini:      ${avg_g * 10000:.2f}")
         summary["avg_cost_gemini"] = round(avg_g, 6)
         summary["monthly_10k_gemini"] = round(avg_g * 10000, 2)
     else:
@@ -290,26 +325,38 @@ def run_eval():
     if claude_costs:
         tc = sum(claude_costs)
         avg_c = tc / len(claude_costs)
-        print(f"비용 (Claude, 평균):  ${avg_c:.6f}  (성공 {len(claude_costs)}/{len(all_results)}건)")
-        print(f"월 1만건 Claude:      ${avg_c*10000:.2f}")
+        print(f"비용 (Claude, 평균):  ${avg_c:.6f} (성공 {len(claude_costs)}/{len(all_results)}건)")
+        print(f"월 1만건 Claude:      ${avg_c * 10000:.2f}")
         summary["avg_cost_claude"] = round(avg_c, 6)
         summary["monthly_10k_claude"] = round(avg_c * 10000, 2)
     else:
         print("비용 (Claude): 측정 실패 (AWS 자격증명 확인 필요)")
+
+    if gpt_costs:
+        tgo = sum(gpt_costs)
+        avg_go = tgo / len(gpt_costs)
+        print(f"비용 (gpt-oss, 평균): ${avg_go:.6f}  (성공 {len(gpt_costs)}/{len(all_results)}건)")
+        print(f"월 1만건 gpt-oss:     ${avg_go * 10000:.2f}")
+        summary["avg_cost_gptoss"] = round(avg_go, 6)
+        summary["monthly_10k_gptoss"] = round(avg_go * 10000, 2)
+    else:
+        print("비용 (gpt-oss): 측정 실패 (AWS 자격증명 확인 필요)")
 
     print(f"평균 CPU 사용률:   {avg_cpu:.1f}%")
     print(f"평균 RAM 사용량:   {avg_ram:.1f}MB")
     print(f"최대 RAM 사용량:   {max_ram:.1f}MB")
 
     if vram_available:
-        avg_vram = sum(r["vram_mb"] for r in all_results) / len(all_results)
-        max_vram = max(r["vram_mb"] for r in all_results)
-        print(f"평균 VRAM 사용량:  {avg_vram:.1f}MB")
-        print(f"최대 VRAM 사용량:  {max_vram:.1f}MB")
-        summary["avg_vram_mb"] = round(avg_vram, 1)
-        summary["max_vram_mb"] = round(max_vram, 1)
-    else:
-        print("VRAM: 측정 불가 (GPU 없음 또는 Mac 환경)")
+        vram_values = [r["vram_mb"] for r in all_results if r["vram_mb"] is not None]
+        if vram_values:
+            avg_vram = sum(vram_values) / len(vram_values)
+            max_vram = max(vram_values)
+            print(f"평균 VRAM 사용량:  {avg_vram:.1f}MB")
+            print(f"최대 VRAM 사용량:  {max_vram:.1f}MB")
+            summary["avg_vram_mb"] = round(avg_vram, 1)
+            summary["max_vram_mb"] = round(max_vram, 1)
+        else:
+            print("VRAM: 측정 데이터 없음")
 
     with open("benchmark_results.json", "w", encoding="utf-8") as f:
         json.dump({"summary": summary, "details": all_results}, f, ensure_ascii=False, indent=2)
