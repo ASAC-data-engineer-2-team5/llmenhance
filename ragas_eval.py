@@ -210,11 +210,13 @@ def analyze_by_type(df, metric_name):
         else:
             print(f"    {t}: 채점 실패 (n=0)")
 
+
 def _safe_round(value, ndigits: int = 3):
     """NaN을 JSON 직렬화 가능한 None으로 변환한다."""
     if isinstance(value, float) and math.isnan(value):
         return None
     return round(value, ndigits)
+
 
 def run_ragas(dataset, judge_name: str, n_runs: int = 1):
     if not dataset:
@@ -280,9 +282,7 @@ def run_ragas(dataset, judge_name: str, n_runs: int = 1):
             },
             "by_type": {
                 metric: {
-                    t: _safe_round(
-                        last_df[last_df["type"] == t][metric].dropna().mean()
-                    )
+                    t: _safe_round(last_df[last_df["type"] == t][metric].dropna().mean())
                     for t in sorted(last_df["type"].unique())
                 }
                 for metric in ["faithfulness", "answer_relevancy", "context_recall"]
