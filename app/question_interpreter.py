@@ -9,13 +9,23 @@ PROCEDURE_LOOKUP = "procedure_lookup"
 REQUIREMENT_LOOKUP = "requirement_lookup"
 GENERAL_QA = "general_qa"
 
-_ELIGIBILITY_MARKERS = (
+_ANNUAL_LEAVE_TERMS = ("연차", "휴가", "유급휴가")
+_ANNUAL_LEAVE_ACTIONS = (
+    "신청",
+    "사용",
+    "쓰",
+    "써",
+    "넣",
+)
+_ELIGIBILITY_FALLBACK_MARKERS = (
     "될까요",
     "되나요",
-    "가능한가요",
-    "괜찮나요",
-    "해도 되나요",
-    "할 수 있나요",
+    "가능",
+    "괜찮",
+    "문제 없",
+    "문제없",
+    "해도 되",
+    "할 수 있",
 )
 _DEADLINE_MARKERS = ("언제까지", "며칠 전까지", "몇 일 전까지", "기한", "마감")
 _PROCEDURE_MARKERS = ("절차", "방법", "어떻게", "순서", "신청 방법")
@@ -35,7 +45,7 @@ def interpret_question(question: str) -> InterpretedQuestion:
     original_question = question.strip()
     normalized_question = _normalize_retrieval_question(original_question)
     conditions = _extract_conditions(normalized_question)
-    intent = _classify_intent(normalized_question)
+    intent = _classify_intent(normalized_question, conditions)
     retrieval_question = _build_retrieval_question(normalized_question, intent, conditions)
     canonical_question = _build_canonical_question(
         original_question,
@@ -52,14 +62,16 @@ def interpret_question(question: str) -> InterpretedQuestion:
     )
 
 
-def _classify_intent(question: str) -> str:
+def _classify_intent(question: str, conditions: dict[str, str]) -> str:
+    if _is_structural_annual_leave_eligibility(question, conditions):
+        return ELIGIBILITY_CHECK
     if _contains_any(question, _DEADLINE_MARKERS):
         return DEADLINE_LOOKUP
     if _contains_any(question, _PROCEDURE_MARKERS):
         return PROCEDURE_LOOKUP
     if _contains_any(question, _REQUIREMENT_MARKERS):
         return REQUIREMENT_LOOKUP
-    if _contains_any(question, _ELIGIBILITY_MARKERS):
+    if _contains_any(question, _ELIGIBILITY_FALLBACK_MARKERS):
         return ELIGIBILITY_CHECK
     return GENERAL_QA
 
@@ -78,7 +90,7 @@ def _extract_conditions(question: str) -> dict[str, str]:
 
 
 def _extract_lead_time(question: str) -> str | None:
-    explicit = re.search(r"(\d+\s*일)\s*(뒤|후|전)", question)
+    explicit = re.search(r"(\d+\s*일)\s*(뒤|후|전)(?:에|로|부터)?", question)
     if explicit:
         return f"{explicit.group(1).replace(' ', '')} {explicit.group(2)}"
     if "당일" in question or "오늘" in question:
@@ -115,7 +127,10 @@ def _build_canonical_question(
                 f"비교 방식: 사용일까지 남은 기간은 {_lead_time_to_days_text(lead_time)}이다. "
                 "context에 '최소 M영업일 전' 또는 '최소 M일 전' 기준이 있으면, "
                 "사용자 조건과 문서 기준 M을 비교하라. "
-                "사용자 조건이 M보다 짧으면 기준을 충족하지 않는다고 답하라.\n"
+                "사용자 조건이 M보다 짧으면 기준을 충족하지 않는다고 답하라. "
+                "사용자 조건이 M 이상이면 기준을 충족한다고 답하라. "
+                "다만 기준이 영업일이고 사용자 조건이 달력일 기준이면, "
+                "주말/공휴일 여부 확인이 필요하다고 조건부로 표현하라.\n"
                 "문서 기준상 충족하지 않으면 필요한 최소 신청 기한을 답하라. "
                 "새 날짜를 계산하지 말라. "
                 "문서에 없는 승인, 거부, 예외, 추측은 만들지 말라."
@@ -153,6 +168,14 @@ def _format_conditions(conditions: dict[str, str]) -> str:
     if not conditions:
         return "명시적으로 추출된 조건 없음"
     return ", ".join(f"{key}={value}" for key, value in conditions.items())
+
+
+def _is_structural_annual_leave_eligibility(question: str, conditions: dict[str, str]) -> bool:
+    return (
+        "lead_time" in conditions
+        and _contains_any(question, _ANNUAL_LEAVE_TERMS)
+        and _contains_any(question, _ANNUAL_LEAVE_ACTIONS)
+    )
 
 
 def _is_annual_leave_deadline_check(question: str, conditions: dict[str, str]) -> bool:
