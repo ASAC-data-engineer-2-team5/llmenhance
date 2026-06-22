@@ -10,6 +10,7 @@ import streamlit as st
 API_BASE = os.getenv("RAG_API_URL", "http://localhost:8000")
 QWEN_ENDPOINT = f"{API_BASE}/api/ask/qwen"
 GEMINI_ENDPOINT = f"{API_BASE}/api/ask/gemini"
+BEDROCK_ENDPOINT = f"{API_BASE}/api/ask/bedrock"
 HEALTH_ENDPOINT = f"{API_BASE}/health/services"
 ASK_TIMEOUT_SECONDS = 180.0
 HEALTH_TIMEOUT_SECONDS = 6.0
@@ -17,6 +18,20 @@ OLLAMA_MODEL_OPTIONS = {
     "Qwen": "qwen3:4b-instruct",
     "EXAONE": "exaone3.5:7.8b",
 }
+GEMINI_MODEL_OPTIONS = {
+    "Gemini 2.5 Flash": "gemini-2.5-flash",
+    "Gemini 2.5 Pro": "gemini-2.5-pro",
+}
+BEDROCK_MODEL_OPTIONS = {
+    "Claude Sonnet 4.6": "jp.anthropic.claude-sonnet-4-6",
+    "Claude Opus 4.6": "global.anthropic.claude-opus-4-6-v1",
+    "Claude Sonnet 4.5": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+}
+DEFAULT_GEMINI_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_GEMINI_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID", "")
+DEFAULT_BEDROCK_REGION = os.getenv("BEDROCK_REGION", "ap-northeast-3")
+DEFAULT_BEDROCK_MODEL = os.getenv("BEDROCK_MODEL_ID", "jp.anthropic.claude-sonnet-4-6")
 
 STATUS_LABELS = {
     "ok": "정상",
@@ -40,6 +55,7 @@ def _init_state() -> None:
     defaults: dict[str, Any] = {
         "qwen_messages": [],
         "gemini_messages": [],
+        "bedrock_messages": [],
         "service_status": None,
     }
     for key, value in defaults.items():
@@ -70,6 +86,7 @@ def _render_sidebar() -> None:
         _render_status_line("Ollama / Qwen", status.get("ollama", {}))
         _render_status_line("Qdrant", status.get("qdrant", {}))
         _render_status_line("Vertex Gemini", status.get("gemini", {}))
+        _render_status_line("AWS Bedrock", status.get("bedrock", {}))
 
         st.divider()
         overall = _overall_status(status)
@@ -80,12 +97,16 @@ def _render_sidebar() -> None:
         else:
             st.error("연결 오류 발생")
 
+        st.divider()
+        _render_cloud_session_controls()
+
 
 def _render_main() -> None:
     st.title("사내 규정 챗봇 모델 비교")
 
     status = st.session_state.service_status
-    col_qwen, col_gemini = st.columns(2)
+    cloud_configs = _cloud_session_configs()
+    col_qwen, col_gemini, col_bedrock = st.columns(3)
 
     with col_qwen:
         _render_panel_header("EC2 Ollama", status, "ollama")
@@ -100,21 +121,33 @@ def _render_main() -> None:
         st.divider()
         _render_chat_history(st.session_state.gemini_messages)
 
+    with col_bedrock:
+        _render_panel_header("AWS Bedrock", status, "bedrock")
+        st.caption("AWS Bedrock RAG")
+        st.divider()
+        _render_chat_history(st.session_state.bedrock_messages)
+
     question = st.chat_input("사내 규정에 대해 질문하세요.")
     if not question:
         return
 
-    _append_user_message(question)
+    active_model_keys = _active_model_keys(cloud_configs)
+    _append_user_message(question, active_model_keys)
     payload = {"question": question}
     live_containers = {
         "qwen": _render_live_user_message(col_qwen, question),
-        "gemini": _render_live_user_message(col_gemini, question),
     }
+    if cloud_configs["gemini"]["enabled"]:
+        live_containers["gemini"] = _render_live_user_message(col_gemini, question)
+    if cloud_configs["bedrock"]["enabled"]:
+        live_containers["bedrock"] = _render_live_user_message(col_bedrock, question)
 
     with st.spinner("두 모델에서 동시에 답변을 생성하는 중..."):
         for model_key, result in _iter_model_results(
             payload,
             selected_ollama_model=selected_ollama_model,
+            gemini_config=cloud_configs["gemini"],
+            bedrock_config=cloud_configs["bedrock"],
         ):
             messages_key = f"{model_key}_messages"
             _append_assistant_message(messages_key, result)
@@ -141,6 +174,7 @@ def _fetch_service_status() -> dict[str, Any]:
             "ollama": {"status": "unknown", "detail": ""},
             "qdrant": {"status": "unknown", "detail": ""},
             "gemini": {"status": "unknown", "detail": ""},
+            "bedrock": {"status": "unknown", "detail": ""},
         }
 
 
@@ -156,27 +190,201 @@ def _render_ollama_model_selector() -> str:
     return model
 
 
+def _render_cloud_session_controls() -> None:
+    st.subheader("Cloud sessions")
+
+    gemini_enabled = st.toggle(
+        "Gemini",
+        value=_env_bool("ENABLE_GEMINI_PANEL", True),
+        key="gemini_enabled",
+    )
+    if gemini_enabled:
+        st.text_input("Gemini project", value=DEFAULT_GEMINI_PROJECT, key="gemini_project")
+        st.text_input("Gemini location", value=DEFAULT_GEMINI_LOCATION, key="gemini_location")
+        _render_model_text_input(
+            "Gemini model",
+            GEMINI_MODEL_OPTIONS,
+            DEFAULT_GEMINI_MODEL,
+            "gemini_model",
+        )
+        st.number_input(
+            "Gemini thinking budget",
+            value=int(os.getenv("GEMINI_THINKING_BUDGET", "0")),
+            step=1,
+            key="gemini_thinking_budget",
+        )
+
+    bedrock_enabled = st.toggle(
+        "Bedrock",
+        value=_env_bool("ENABLE_BEDROCK_PANEL", bool(DEFAULT_BEDROCK_MODEL)),
+        key="bedrock_enabled",
+    )
+    if bedrock_enabled:
+        st.text_input("Bedrock region", value=DEFAULT_BEDROCK_REGION, key="bedrock_region")
+        _render_model_text_input(
+            "Bedrock model/profile",
+            BEDROCK_MODEL_OPTIONS,
+            DEFAULT_BEDROCK_MODEL,
+            "bedrock_model_id",
+        )
+
+
+def _render_model_text_input(
+    label: str,
+    options: dict[str, str],
+    default_value: str,
+    key: str,
+) -> str:
+    labels = list(options)
+    default_label = next(
+        (item for item in labels if options[item] == default_value),
+        labels[0],
+    )
+    selected_label = st.selectbox(
+        f"{label} preset",
+        options=labels,
+        index=labels.index(default_label),
+        key=f"{key}_preset",
+    )
+    return st.text_input(label, value=options[str(selected_label)], key=key)
+
+
+def _cloud_session_configs() -> dict[str, dict[str, Any]]:
+    return {
+        "gemini": {
+            "enabled": bool(
+                st.session_state.get("gemini_enabled", _env_bool("ENABLE_GEMINI_PANEL", True))
+            ),
+            "project": st.session_state.get("gemini_project", DEFAULT_GEMINI_PROJECT),
+            "location": st.session_state.get("gemini_location", DEFAULT_GEMINI_LOCATION),
+            "model": st.session_state.get("gemini_model", DEFAULT_GEMINI_MODEL),
+            "thinking_budget": st.session_state.get(
+                "gemini_thinking_budget", int(os.getenv("GEMINI_THINKING_BUDGET", "0"))
+            ),
+        },
+        "bedrock": {
+            "enabled": bool(
+                st.session_state.get(
+                    "bedrock_enabled",
+                    _env_bool("ENABLE_BEDROCK_PANEL", bool(DEFAULT_BEDROCK_MODEL)),
+                )
+            ),
+            "region": st.session_state.get("bedrock_region", DEFAULT_BEDROCK_REGION),
+            "model_id": st.session_state.get("bedrock_model_id", DEFAULT_BEDROCK_MODEL),
+        },
+    }
+
+
+def _active_model_keys(cloud_configs: dict[str, dict[str, Any]]) -> list[str]:
+    keys = ["qwen"]
+    if cloud_configs["gemini"]["enabled"]:
+        keys.append("gemini")
+    if cloud_configs["bedrock"]["enabled"]:
+        keys.append("bedrock")
+    return keys
+
+
 def _ask_both_models(
-    payload: dict[str, Any], *, selected_ollama_model: str
+    payload: dict[str, Any],
+    *,
+    selected_ollama_model: str,
+    gemini_config: dict[str, Any] | None = None,
+    bedrock_config: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     return {
         model_key: result
         for model_key, result in _iter_model_results(
             payload,
             selected_ollama_model=selected_ollama_model,
+            gemini_config=gemini_config,
+            bedrock_config=bedrock_config,
         )
     }
 
 
-def _iter_model_results(payload: dict[str, Any], *, selected_ollama_model: str) -> Any:
-    qwen_payload = {**payload, "llm_model": selected_ollama_model}
-    with ThreadPoolExecutor(max_workers=2) as executor:
+def _iter_model_results(
+    payload: dict[str, Any],
+    *,
+    selected_ollama_model: str,
+    gemini_config: dict[str, Any] | None = None,
+    bedrock_config: dict[str, Any] | None = None,
+) -> Any:
+    requests = _model_requests(
+        payload,
+        selected_ollama_model=selected_ollama_model,
+        gemini_config=gemini_config,
+        bedrock_config=bedrock_config,
+    )
+    with ThreadPoolExecutor(max_workers=len(requests)) as executor:
         futures = {
-            executor.submit(_call_rag, QWEN_ENDPOINT, qwen_payload): "qwen",
-            executor.submit(_call_rag, GEMINI_ENDPOINT, payload): "gemini",
+            executor.submit(_call_rag, endpoint, request_payload): model_key
+            for model_key, endpoint, request_payload in requests
         }
         for future in as_completed(futures):
             yield futures[future], future.result()
+
+
+def _model_requests(
+    payload: dict[str, Any],
+    *,
+    selected_ollama_model: str,
+    gemini_config: dict[str, Any] | None,
+    bedrock_config: dict[str, Any] | None,
+) -> list[tuple[str, str, dict[str, Any]]]:
+    requests = [
+        ("qwen", QWEN_ENDPOINT, {**payload, "llm_model": selected_ollama_model}),
+    ]
+
+    if _provider_enabled(gemini_config, default=True):
+        requests.append(("gemini", GEMINI_ENDPOINT, _gemini_payload(payload, gemini_config or {})))
+
+    if _provider_enabled(bedrock_config, default=False):
+        requests.append(
+            ("bedrock", BEDROCK_ENDPOINT, _bedrock_payload(payload, bedrock_config or {}))
+        )
+
+    return requests
+
+
+def _provider_enabled(config: dict[str, Any] | None, *, default: bool) -> bool:
+    if config is None:
+        return default
+    return bool(config.get("enabled", default))
+
+
+def _gemini_payload(payload: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    return _payload_with_optional_values(
+        payload,
+        {
+            "gemini_project": config.get("project"),
+            "gemini_location": config.get("location"),
+            "gemini_model": config.get("model"),
+            "gemini_thinking_budget": config.get("thinking_budget"),
+        },
+    )
+
+
+def _bedrock_payload(payload: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    return _payload_with_optional_values(
+        payload,
+        {
+            "bedrock_region": config.get("region"),
+            "bedrock_model_id": config.get("model_id"),
+        },
+    )
+
+
+def _payload_with_optional_values(
+    payload: dict[str, Any], optional_values: dict[str, Any]
+) -> dict[str, Any]:
+    merged = dict(payload)
+    for key, value in optional_values.items():
+        if value is None:
+            continue
+        if isinstance(value, str) and not value.strip():
+            continue
+        merged[key] = value
+    return merged
 
 
 def _call_rag(url: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -207,10 +415,10 @@ def _error_detail(response: httpx.Response) -> str:
     return str(detail)
 
 
-def _append_user_message(question: str) -> None:
+def _append_user_message(question: str, model_keys: list[str] | None = None) -> None:
     user_message = {"role": "user", "content": question}
-    st.session_state.qwen_messages.append(user_message)
-    st.session_state.gemini_messages.append(user_message)
+    for model_key in model_keys or ["qwen", "gemini"]:
+        st.session_state[f"{model_key}_messages"].append(user_message)
 
 
 def _append_assistant_message(messages_key: str, result: dict[str, Any]) -> None:
@@ -271,6 +479,13 @@ def _render_status_line(label: str, service: dict[str, Any]) -> None:
     st.markdown(f"**{label}** · {status_label}")
     if detail:
         st.caption(str(detail))
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _overall_status(status: dict[str, Any]) -> str:

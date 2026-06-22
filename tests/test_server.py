@@ -181,6 +181,88 @@ def test_ask_gemini_uses_pr10_context_builder_pipeline(monkeypatch):
     assert captured["settings"] is settings
 
 
+def test_ask_gemini_allows_session_model_and_endpoint_overrides(monkeypatch):
+    server = server_module()
+    settings = make_settings()
+    captured = {}
+
+    monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+
+    def fake_answer_question_with_gemini(question, top_k, **kwargs):
+        captured.update(kwargs)
+        return {"answer": "Gemini override answer", "sources": []}
+
+    monkeypatch.setattr(server, "answer_question_with_gemini", fake_answer_question_with_gemini)
+
+    response = server.ask_gemini(
+        server.AskRequest(
+            question="?곗감 ?좎껌",
+            gemini_project="demo-project",
+            gemini_location="asia-northeast3",
+            gemini_model="gemini-2.5-pro",
+            gemini_thinking_budget=0,
+        )
+    )
+
+    assert response.answer == "Gemini override answer"
+    assert captured["project"] == "demo-project"
+    assert captured["location"] == "asia-northeast3"
+    assert captured["model"] == "gemini-2.5-pro"
+    assert captured["thinking_budget"] == 0
+    assert captured["max_output_tokens"] == settings.num_predict
+
+
+def test_ask_bedrock_uses_session_model_endpoint_and_existing_env_defaults(monkeypatch):
+    server = server_module()
+    settings = make_settings()
+    captured = {}
+
+    monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+
+    def fake_answer_question_with_bedrock(question, top_k, **kwargs):
+        captured["question"] = question
+        captured["top_k"] = top_k
+        captured.update(kwargs)
+        return {"answer": "Bedrock Sonnet answer", "sources": [{"chunk_id": "jo-39"}]}
+
+    monkeypatch.setattr(server, "answer_question_with_bedrock", fake_answer_question_with_bedrock)
+
+    response = server.ask_bedrock(
+        server.AskRequest(
+            question="4일후 연차신청하는데 가능한가요?",
+            bedrock_region="ap-northeast-3",
+            bedrock_model_id="jp.anthropic.claude-sonnet-4-6",
+        )
+    )
+
+    assert response.answer == "Bedrock Sonnet answer"
+    assert captured["question"] == "4일후 연차신청하는데 가능한가요?"
+    assert captured["top_k"] == settings.retrieval_top_k
+    assert captured["region"] == "ap-northeast-3"
+    assert captured["model_id"] == "jp.anthropic.claude-sonnet-4-6"
+    assert captured["max_output_tokens"] == settings.num_predict
+    assert captured["settings"] is settings
+
+
+def test_ask_bedrock_requires_model_id(monkeypatch):
+    server = server_module()
+
+    monkeypatch.setattr(server.Settings, "from_env", make_settings)
+    monkeypatch.delenv("BEDROCK_MODEL_ID", raising=False)
+
+    def fail_if_called(*args, **kwargs):
+        pytest.fail("not called")
+
+    monkeypatch.setattr(server, "answer_question_with_bedrock", fail_if_called)
+
+    with pytest.raises(Exception) as exc_info:
+        server.ask_bedrock(server.AskRequest(question="?곗감 ?좎껌"))
+
+    assert getattr(exc_info.value, "status_code", None) == 503
+
+
 def test_check_gemini_warns_when_credential_file_is_missing(monkeypatch, tmp_path):
     server = server_module()
     missing_path = tmp_path / "missing-sa.json"
