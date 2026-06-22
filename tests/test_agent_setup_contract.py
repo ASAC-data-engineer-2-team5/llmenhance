@@ -136,6 +136,30 @@ def test_gitignore_excludes_local_rag_state() -> None:
     assert "!.env.local-ollama.example" in gitignore
 
 
+def test_aws_deployment_defaults_to_osaka_region() -> None:
+    deployment_files = [
+        ".github/workflows/deploy-mvp.yml",
+        ".github/workflows/terraform-ci.yml",
+        "docs/AWS_DEPLOYMENT.md",
+        "docs/superpowers/plans/2026-06-21-aws-deployment-plan.md",
+        "infra/terraform/bootstrap/main.tf",
+        "infra/terraform/envs/mvp/backend.tf",
+        "infra/terraform/envs/mvp/terraform.tfvars.example",
+        "infra/terraform/envs/mvp/variables.tf",
+    ]
+
+    for path in deployment_files:
+        text = read_repo_file(path)
+        assert "ap-northeast-3" in text, path
+        assert "ap-northeast-2" not in text, path
+
+
+def test_mvp_terraform_backend_has_placeholder_bucket_for_validation() -> None:
+    backend = read_repo_file("infra/terraform/envs/mvp/backend.tf")
+
+    assert 'bucket       = "llmenhance-mvp-tfstate-placeholder"' in backend
+
+
 def test_team_environment_doc_exists_and_mentions_security_group() -> None:
     doc = read_repo_file("docs/TEAM_ENVIRONMENT.md")
 

@@ -34,7 +34,7 @@ concurrency:
 env:
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
-  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-3' }}
   TF_VAR_ollama_base_url: ${{ vars.OLLAMA_BASE_URL }}
   TF_VAR_streamlit_allowed_cidr_blocks: ${{ vars.STREAMLIT_ALLOWED_CIDR_BLOCKS || '[]' }}
   TF_VAR_repo_ref: ${{ inputs.git_ref }}

@@ -22,7 +22,7 @@ permissions:
 env:
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
-  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-3' }}
 
 jobs:
   validate:

@@ -290,7 +290,7 @@ provider "aws" {
 ```hcl
 variable "aws_region" {
   type    = string
-  default = "ap-northeast-2"
+  default = "ap-northeast-3"
 }
 
 variable "project_name" {
@@ -416,8 +416,9 @@ provider "aws" {
 ```hcl
 terraform {
   backend "s3" {
+    bucket       = "llmenhance-mvp-tfstate-placeholder"
     key          = "llmenhance/mvp/terraform.tfstate"
-    region       = "ap-northeast-2"
+    region       = "ap-northeast-3"
     use_lockfile = true
   }
 }
@@ -440,7 +441,7 @@ terraform init "-backend-config=backend.hcl"
 ```hcl
 variable "aws_region" {
   type    = string
-  default = "ap-northeast-2"
+  default = "ap-northeast-3"
 }
 
 variable "project_name" {
@@ -664,7 +665,7 @@ output "ssm_api_tunnel_command" {
 - [ ] **Step 6: Create `infra/terraform/envs/mvp/terraform.tfvars.example`**
 
 ```hcl
-aws_region              = "ap-northeast-2"
+aws_region              = "ap-northeast-3"
 project_name            = "llmenhance"
 environment             = "mvp"
 instance_type           = "t3.large"

@@ -64,7 +64,7 @@ It always validates:
 It also runs a remote-state Terraform plan when these repository variables are configured:
 
 ```text
-AWS_REGION=ap-northeast-2
+AWS_REGION=ap-northeast-3
 AWS_ROLE_TO_ASSUME=arn:aws:iam::<account-id>:role/<github-actions-role>
 TF_STATE_BUCKET=<terraform-state-bucket>
 OLLAMA_BASE_URL=http://<model-server-ip>:11434
