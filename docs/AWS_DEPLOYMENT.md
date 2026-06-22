@@ -14,6 +14,8 @@ to call AWS SSM Run Command against the existing instance.
 - The instance role allows `AmazonSSMManagedInstanceCore`.
 - Docker and Docker Compose v2 are installed.
 - Host Ollama is running on port `11434`.
+- Existing EC2 uses `OLLAMA_EMBEDDING_TIMEOUT_SECONDS=180` because cold
+  `bge-m3` embedding calls can exceed the local 30 second default.
 - Gemini credential JSON exists at:
 
 ```bash

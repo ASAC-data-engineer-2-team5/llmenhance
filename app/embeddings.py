@@ -1,9 +1,10 @@
+import os
 from numbers import Real
 from typing import Any
 
 import httpx
 
-TIMEOUT_SECONDS = 30
+DEFAULT_TIMEOUT_SECONDS = 30
 
 
 def embed_text(base_url: str, model: str, text: str) -> list[float]:
@@ -35,9 +36,28 @@ def embed_text(base_url: str, model: str, text: str) -> list[float]:
 
 
 def _post_embedding(base_url: str, path: str, payload: dict[str, str]) -> list[float]:
-    response = httpx.post(_join_url(base_url, path), json=payload, timeout=TIMEOUT_SECONDS)
+    response = httpx.post(
+        _join_url(base_url, path),
+        json=payload,
+        timeout=_embedding_timeout_seconds(),
+    )
     response.raise_for_status()
     return _parse_embedding_vector(response.json())
+
+
+def _embedding_timeout_seconds() -> float:
+    value = os.getenv("OLLAMA_EMBEDDING_TIMEOUT_SECONDS")
+    if value is None or value.strip() == "":
+        return DEFAULT_TIMEOUT_SECONDS
+
+    try:
+        timeout_seconds = float(value)
+    except ValueError:
+        return DEFAULT_TIMEOUT_SECONDS
+
+    if timeout_seconds <= 0:
+        return DEFAULT_TIMEOUT_SECONDS
+    return timeout_seconds
 
 
 def _join_url(base_url: str, path: str) -> str:

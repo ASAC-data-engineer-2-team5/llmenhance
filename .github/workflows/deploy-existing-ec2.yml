@@ -88,6 +88,7 @@ jobs:
               "OLLAMA_BASE_URL=http://host.docker.internal:11434",
               "LLM_MODEL=qwen3:4b-instruct",
               "EMBEDDING_MODEL=bge-m3",
+              "OLLAMA_EMBEDDING_TIMEOUT_SECONDS=180",
               "QDRANT_URL=http://qdrant:6333",
               "QDRANT_COLLECTION=llmenhance_chunks",
               "RETRIEVAL_TOP_K=5",

@@ -47,6 +47,7 @@ def test_embed_text_parses_vector_from_primary_embed_endpoint(monkeypatch):
         calls.append((url, json, timeout))
         return FakeResponse({"embeddings": [[0.1, 0.2, 0.3]]})
 
+    monkeypatch.delenv("OLLAMA_EMBEDDING_TIMEOUT_SECONDS", raising=False)
     monkeypatch.setattr(httpx, "post", fake_post)
 
     vector = embeddings_module().embed_text(
@@ -66,6 +67,26 @@ def test_embed_text_parses_vector_from_primary_embed_endpoint(monkeypatch):
             30,
         )
     ]
+
+
+def test_embed_text_allows_timeout_override_for_slow_local_embedding(monkeypatch):
+    calls = []
+
+    def fake_post(url, *, json, timeout):
+        calls.append((url, json, timeout))
+        return FakeResponse({"embeddings": [[0.1, 0.2, 0.3]]})
+
+    monkeypatch.setenv("OLLAMA_EMBEDDING_TIMEOUT_SECONDS", "180")
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    vector = embeddings_module().embed_text(
+        "http://ollama.test/",
+        "bge-m3",
+        "How many days in advance should annual leave be requested?",
+    )
+
+    assert vector == [0.1, 0.2, 0.3]
+    assert calls[0][2] == 180
 
 
 def test_embed_text_falls_back_when_primary_response_shape_is_incompatible(

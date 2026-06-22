@@ -166,6 +166,7 @@ def test_existing_ec2_env_template_includes_model_comparison_settings() -> None:
     assert "TEAM_ENV_PROFILE=existing-ec2" in env_template
     assert "OLLAMA_BASE_URL=http://host.docker.internal:11434" in env_template
     assert "LLM_MODEL=qwen3:4b-instruct" in env_template
+    assert "OLLAMA_EMBEDDING_TIMEOUT_SECONDS=180" in env_template
     assert "TEMPERATURE=0.2" in env_template
     assert "NUM_CTX=4096" in env_template
     assert "NUM_PREDICT=512" in env_template
@@ -196,6 +197,7 @@ def test_existing_ec2_deploy_workflow_targets_existing_instance_and_reindexes() 
     assert "aws ssm send-command" in workflow
     assert "/opt/llmenhance/app" in workflow
     assert "git fetch --all --prune" in workflow
+    assert "OLLAMA_EMBEDDING_TIMEOUT_SECONDS=180" in workflow
     assert "git pull --ff-only origin" in workflow
     assert "docker compose -f docker-compose.aws.yml up -d --build" in workflow
     assert "python scripts/ingest_md.py datasets/docs --reset" in workflow
