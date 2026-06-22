@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>llmenhance 발표용 챗봇 비교</title>
+    <link rel="stylesheet" href="/static/presentation.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="top-bar" aria-label="발표 화면 제목">
+        <div>
+          <p class="eyebrow">llmenhance RAG MVP</p>
+          <h1>발표용 챗봇 비교</h1>
+        </div>
+        <div class="mode-pill">직접 채팅 · 두 모델 동시 응답</div>
+      </section>
+
+      <section class="chat-grid" aria-label="챗봇 비교">
+        <article class="chat-panel local-panel">
+          <header>
+            <div>
+              <p class="eyebrow">Ollama Local</p>
+              <h2>Local LLM 챗봇</h2>
+              <p id="localModelName" class="model-name">model: 확인 중</p>
+            </div>
+            <div class="status-stack">
+              <fieldset id="localModelToggle" class="model-toggle" aria-label="Local LLM 모델 선택">
+                <legend>모델 선택</legend>
+                <label class="model-option" for="localModelQwen">
+                  <input
+                    id="localModelQwen"
+                    type="radio"
+                    name="localModel"
+                    value="qwen3:4b-instruct"
+                    checked
+                  >
+                  <span>Qwen 4B</span>
+                </label>
+                <label class="model-option" for="localModelExaone">
+                  <input
+                    id="localModelExaone"
+                    type="radio"
+                    name="localModel"
+                    value="exaone3.5:7.8b"
+                  >
+                  <span>EXAONE 7.8B</span>
+                </label>
+              </fieldset>
+              <span id="localIntegrationStatus" class="status">연동 확인 중</span>
+            </div>
+          </header>
+          <div id="localMessages" class="message-stream" aria-live="polite">
+            <div class="empty-state">질문을 입력하면 Local LLM 답변이 이곳에 쌓입니다.</div>
+          </div>
+          <footer>
+            <span id="localLatency">생성 시간 -</span>
+            <span id="localSourceCount">출처 0개</span>
+            <span>내부망/온프렘 방향</span>
+          </footer>
+        </article>
+
+        <article class="chat-panel api-panel">
+          <header>
+            <div>
+              <p class="eyebrow">AWS Bedrock</p>
+              <h2>API 모델 챗봇</h2>
+              <p id="apiModelName" class="model-name">model: 확인 중</p>
+            </div>
+            <div class="status-stack">
+              <span id="apiIntegrationStatus" class="status">연동 확인 중</span>
+            </div>
+          </header>
+          <div id="apiMessages" class="message-stream" aria-live="polite">
+            <div class="empty-state">질문을 입력하면 API 모델 답변이 이곳에 쌓입니다.</div>
+          </div>
+          <footer>
+            <span id="apiLatency">생성 시간 -</span>
+            <span id="apiSourceCount">출처 0개</span>
+            <span>외부 API 비교 경로</span>
+          </footer>
+        </article>
+      </section>
+
+      <form id="chatForm" class="chat-composer" aria-label="채팅 입력 영역">
+        <input
+          id="chatInput"
+          type="text"
+          aria-label="질문"
+          autocomplete="off"
+          placeholder="회사 정책에 대해 질문해보세요"
+        >
+        <button id="sendButton" type="submit">채팅 전송</button>
+        <button id="clearChatButton" type="button">대화 초기화</button>
+        <div id="sampleQuestions" class="sample-questions" aria-label="예시 질문"></div>
+      </form>
+
+      <section class="evidence-grid" aria-label="출처와 발표 메시지">
+        <article>
+          <h2>공통 RAG 근거</h2>
+          <ul id="sourceList" class="source-list"></ul>
+        </article>
+        <article>
+          <h2>발표 핵심 메시지</h2>
+          <p id="takeaway">
+            같은 검색 근거를 쓰면 답변과 출처는 안정화되고, 차이는 주로 속도와 운영 방식에서 드러납니다.
+          </p>
+        </article>
+      </section>
+    </main>
+    <script src="/static/presentation.js"></script>
+  </body>
+</html>

@@ -62,3 +62,6 @@ target/
 # Local worktrees
 .worktrees/
 worktrees/
+
+# Local brainstorming sessions
+.superpowers/
