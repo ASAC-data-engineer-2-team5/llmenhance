@@ -1,0 +1,164 @@
+name: Deploy Existing EC2
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Git branch or ref to deploy"
+        required: true
+        default: "main"
+      reindex:
+        description: "Rebuild Qdrant from datasets/docs"
+        required: true
+        type: boolean
+        default: true
+      run_verify:
+        description: "Run EC2-local verification"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: llmenhance-existing-ec2-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-3' }}
+  AWS_APP_INSTANCE_ID: ${{ vars.AWS_APP_INSTANCE_ID || 'i-0ccf9071972894f30' }}
+  REPO_URL: https://github.com/ASAC-data-engineer-2-team5/llmenhance.git
+
+jobs:
+  deploy:
+    name: deploy to existing EC2
+    runs-on: ubuntu-latest
+    environment: mvp
+
+    steps:
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+          if [ -z "${{ vars.AWS_ROLE_TO_ASSUME }}" ]; then
+            echo "Repository variable AWS_ROLE_TO_ASSUME is required." >&2
+            exit 1
+          fi
+          if ! [[ "${{ inputs.git_ref }}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "git_ref contains unsupported characters." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy app through SSM
+        env:
+          DEPLOY_REF: ${{ inputs.git_ref }}
+          REINDEX: ${{ inputs.reindex }}
+          RUN_VERIFY: ${{ inputs.run_verify }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT || '' }}
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_THINKING_BUDGET: ${{ vars.GEMINI_THINKING_BUDGET || '0' }}
+          BEDROCK_REGION: ${{ vars.BEDROCK_REGION || 'ap-northeast-2' }}
+          BEDROCK_MODEL_ID: ${{ vars.BEDROCK_MODEL_ID || '' }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import shlex
+
+          deploy_ref = os.environ["DEPLOY_REF"]
+          repo_url = os.environ["REPO_URL"]
+
+          env_lines = [
+              "TEAM_ENV_PROFILE=existing-ec2",
+              "OLLAMA_BASE_URL=http://host.docker.internal:11434",
+              "LLM_MODEL=qwen3:4b-instruct",
+              "EMBEDDING_MODEL=bge-m3",
+              "QDRANT_URL=http://qdrant:6333",
+              "QDRANT_COLLECTION=llmenhance_chunks",
+              "RETRIEVAL_TOP_K=5",
+              "TEMPERATURE=0.2",
+              "NUM_CTX=4096",
+              "NUM_PREDICT=512",
+              "GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH=/home/ubuntu/secrets/google-application-credentials.json",
+              "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/google-application-credentials.json",
+              f"GOOGLE_CLOUD_PROJECT={os.environ['GOOGLE_CLOUD_PROJECT']}",
+              f"GOOGLE_CLOUD_LOCATION={os.environ['GOOGLE_CLOUD_LOCATION']}",
+              f"GEMINI_MODEL={os.environ['GEMINI_MODEL']}",
+              f"GEMINI_THINKING_BUDGET={os.environ['GEMINI_THINKING_BUDGET']}",
+              f"BEDROCK_REGION={os.environ['BEDROCK_REGION']}",
+              f"BEDROCK_MODEL_ID={os.environ['BEDROCK_MODEL_ID']}",
+              "BEDROCK_MODEL_LABEL=AWS Bedrock",
+              "BEDROCK_MAX_OUTPUT_TOKENS=256",
+              "PRESENTATION_TOP_K=3",
+          ]
+
+          env_body = "\n".join(env_lines) + "\n"
+          commands = [
+              "set -eux",
+              "sudo mkdir -p /opt/llmenhance/app /opt/llmenhance/qdrant /opt/llmenhance/storage",
+              "sudo chown -R ubuntu:ubuntu /opt/llmenhance",
+              "test -s /home/ubuntu/secrets/google-application-credentials.json",
+              f"if [ ! -d /opt/llmenhance/app/.git ]; then rm -rf /opt/llmenhance/app && git clone {shlex.quote(repo_url)} /opt/llmenhance/app; fi",
+              "cd /opt/llmenhance/app",
+              "git fetch --all --prune",
+              f"git checkout {shlex.quote(deploy_ref)}",
+              f"git pull --ff-only origin {shlex.quote(deploy_ref)}",
+              "cat > .env <<'ENVEOF'\n" + env_body + "ENVEOF",
+              "docker compose -f docker-compose.aws.yml up -d --build",
+          ]
+
+          if os.environ["REINDEX"] == "true":
+              commands.append(
+                  "docker compose -f docker-compose.aws.yml run --rm rag-api "
+                  "python scripts/ingest_md.py datasets/docs --reset"
+              )
+
+          if os.environ["RUN_VERIFY"] == "true":
+              commands.append("./scripts/aws_verify.sh")
+
+          with open("/tmp/llmenhance-existing-ec2-ssm.json", "w", encoding="utf-8") as handle:
+              json.dump({"commands": commands}, handle)
+          PY
+
+          command_id="$(
+            aws ssm send-command \
+              --region "${AWS_REGION}" \
+              --instance-ids "${AWS_APP_INSTANCE_ID}" \
+              --document-name AWS-RunShellScript \
+              --comment "Deploy llmenhance ${DEPLOY_REF} to existing EC2" \
+              --parameters file:///tmp/llmenhance-existing-ec2-ssm.json \
+              --query 'Command.CommandId' \
+              --output text
+          )"
+
+          set +e
+          aws ssm wait command-executed \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${AWS_APP_INSTANCE_ID}"
+          wait_status=$?
+          set -e
+
+          aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${AWS_APP_INSTANCE_ID}" \
+            --query '{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}' \
+            --output json
+
+          exit "${wait_status}"

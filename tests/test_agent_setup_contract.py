@@ -144,3 +144,69 @@ def test_team_environment_doc_exists_and_mentions_security_group() -> None:
     assert "http://16.208.81.115:11434" in doc
     assert "security group" in doc
     assert "SETUP_OK" in doc
+
+
+def test_existing_ec2_compose_matches_current_app_runtime_contract() -> None:
+    compose = read_repo_file("docker-compose.aws.yml")
+
+    assert "streamlit run frontend/streamlit_app.py" in compose
+    assert "RAG_API_URL: http://rag-api:8000" in compose
+    assert "/opt/llmenhance/qdrant:/qdrant/storage" in compose
+    assert "/opt/llmenhance/storage:/app/storage" in compose
+    assert "GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH" in compose
+    assert "/run/secrets/google-application-credentials.json:ro" in compose
+    assert "host.docker.internal:host-gateway" in compose
+    assert "127.0.0.1:8000:8000" in compose
+    assert "0.0.0.0:8501:8501" in compose
+
+
+def test_existing_ec2_env_template_includes_model_comparison_settings() -> None:
+    env_template = read_repo_file(".env.aws-ec2.example")
+
+    assert "TEAM_ENV_PROFILE=existing-ec2" in env_template
+    assert "OLLAMA_BASE_URL=http://host.docker.internal:11434" in env_template
+    assert "LLM_MODEL=qwen3:4b-instruct" in env_template
+    assert "TEMPERATURE=0.2" in env_template
+    assert "NUM_CTX=4096" in env_template
+    assert "NUM_PREDICT=512" in env_template
+    assert (
+        "GOOGLE_APPLICATION_CREDENTIALS_HOST_PATH=/home/ubuntu/secrets/"
+        "google-application-credentials.json"
+    ) in env_template
+    assert "GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/google-application-credentials.json" in (
+        env_template
+    )
+    assert "GOOGLE_CLOUD_PROJECT=" in env_template
+    assert "GOOGLE_CLOUD_LOCATION=us-central1" in env_template
+    assert "GEMINI_MODEL=gemini-2.5-flash" in env_template
+    assert "GEMINI_THINKING_BUDGET=0" in env_template
+    assert "BEDROCK_REGION=ap-northeast-2" in env_template
+    assert "PRESENTATION_TOP_K=3" in env_template
+
+
+def test_existing_ec2_deploy_workflow_targets_existing_instance_and_reindexes() -> None:
+    workflow = read_repo_file(".github/workflows/deploy-existing-ec2.yml")
+
+    assert "workflow_dispatch:" in workflow
+    assert "git_ref:" in workflow
+    assert 'default: "main"' in workflow
+    assert "AWS_APP_INSTANCE_ID" in workflow
+    assert "i-0ccf9071972894f30" in workflow
+    assert "aws-actions/configure-aws-credentials@v4" in workflow
+    assert "aws ssm send-command" in workflow
+    assert "/opt/llmenhance/app" in workflow
+    assert "git fetch --all --prune" in workflow
+    assert "git pull --ff-only origin" in workflow
+    assert "docker compose -f docker-compose.aws.yml up -d --build" in workflow
+    assert "python scripts/ingest_md.py datasets/docs --reset" in workflow
+    assert "./scripts/aws_verify.sh" in workflow
+
+
+def test_aws_verify_checks_existing_ec2_runtime_services() -> None:
+    script = read_repo_file("scripts/aws_verify.sh")
+
+    assert "http://127.0.0.1:8501" in script
+    assert "http://127.0.0.1:8000/health/services" in script
+    assert "http://127.0.0.1:6333/collections/llmenhance_chunks" in script
+    assert "points_count" in script
+    assert "AWS_VERIFY_OK" in script
