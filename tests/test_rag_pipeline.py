@@ -215,6 +215,7 @@ def test_answer_question_passes_original_and_canonical_question_to_qwen(monkeypa
     captured = {}
 
     monkeypatch.setattr(pipeline, "embed_text", lambda *args: [0.1, 0.2, 0.3])
+    monkeypatch.setattr(pipeline, "text_to_sparse", lambda *args: {"indices": [1], "values": [1.0]})
     monkeypatch.setattr(pipeline, "search_chunks", lambda *args, **kwargs: [child_hit()])
 
     def fake_chat_qwen(
