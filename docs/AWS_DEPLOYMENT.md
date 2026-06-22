@@ -6,7 +6,7 @@ This deployment uses AWS for the application runtime while keeping Ollama/Qwen a
 
 - Qwen is used only for RAG answer generation.
 - Qwen answers only from retrieved internal document chunks.
-- If retrieved context does not confirm the answer, the service must answer `문서에서 확인되지 않습니다`.
+- If retrieved context does not confirm the answer, the service must answer `문서에서 확인하지 못했습니다`.
 - Every grounded answer must include source references.
 - Ollama/Qwen is not installed inside Docker for the MVP.
 - The existing Ollama/Qwen EC2 is treated as the model server.
@@ -25,6 +25,31 @@ Tester workstation
 -> Docker Compose streamlit/rag-api/qdrant
 -> existing EC2 Ollama/Qwen model server
 ```
+
+## Current MVP Deployment
+
+Status as of 2026-06-22:
+
+- Active app region: Osaka (`ap-northeast-3`).
+- Active app EC2: `i-034ad87172a388195`.
+- Active Streamlit demo URL: `http://15.168.242.105:8501`.
+- Active app Terraform backend: `s3://llmenhance-mvp-tfstate-f2607d88/llmenhance/mvp-osaka/terraform.tfstate`.
+- Model server endpoint: `http://16.208.81.115:11434`.
+- Model server security group `sg-070ff2b14da37516a` allows the Osaka app EIP `15.168.242.105/32` for TCP `11434`.
+
+The previous Seoul app stack in `ap-northeast-2` was destroyed with Terraform from the Seoul state
+`s3://llmenhance-mvp-tfstate-c1e86d18/llmenhance/mvp/terraform.tfstate`.
+The destroyed Seoul app resources were limited to Terraform-managed resources in that state:
+
+- EC2 `i-04fa5f1f0773e3eb7`.
+- EIP `3.37.99.180` / `eipalloc-0cd59ce8c70736136`.
+- Security group `sg-0327586986e4c019d` and its Terraform-managed rules.
+- IAM role/profile `llmenhance-mvp-app-role` and `llmenhance-mvp-app-profile`.
+
+Before destroying the Seoul stack, the state was backed up to:
+
+- `C:\Users\young\llmenhance-terraform-backups\20260622-110038\seoul-llmenhance-mvp-before-destroy.tfstate`
+- `s3://llmenhance-mvp-tfstate-c1e86d18/backups/20260622-110038/llmenhance/mvp/terraform.tfstate`
 
 ## First Deploy
 
@@ -115,7 +140,7 @@ Use a GitHub Environment named `mvp` with required reviewers before allowing pro
 When `streamlit_allowed_cidr_blocks` includes the viewer's IP range, open the public frontend:
 
 ```text
-http://<app-public-ip>:8501
+http://15.168.242.105:8501
 ```
 
 Use Session Manager port forwarding for private MVP validation or API checks:
