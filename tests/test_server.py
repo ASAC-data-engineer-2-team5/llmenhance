@@ -85,6 +85,48 @@ def test_ask_qwen_defaults_top_k_from_settings(monkeypatch):
     assert captured["top_k"] == settings.retrieval_top_k
 
 
+def test_ask_qwen_uses_requested_supported_ollama_model(monkeypatch):
+    server = server_module()
+    settings = make_settings()
+    captured = {}
+
+    monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+
+    def fake_answer_question(question, top_k, **kwargs):
+        captured["settings"] = kwargs["settings"]
+        return {"answer": "EXAONE 답변", "sources": []}
+
+    monkeypatch.setattr(server, "answer_question", fake_answer_question)
+
+    response = server.ask_qwen(
+        server.AskRequest(question="연차규정이 어떻게 되나요?", llm_model="exaone3.5:7.8b")
+    )
+
+    assert response.answer == "EXAONE 답변"
+    assert captured["settings"].llm_model == "exaone3.5:7.8b"
+    assert captured["settings"] is not settings
+    assert settings.llm_model == "qwen3:4b-instruct"
+
+
+def test_ask_qwen_rejects_unsupported_ollama_model(monkeypatch):
+    server = server_module()
+
+    monkeypatch.setattr(server.Settings, "from_env", make_settings)
+
+    def fail_if_called(*args, **kwargs):
+        pytest.fail("not called")
+
+    monkeypatch.setattr(server, "answer_question", fail_if_called)
+
+    with pytest.raises(Exception) as exc_info:
+        server.ask_qwen(
+            server.AskRequest(question="연차규정이 어떻게 되나요?", llm_model="bad-model")
+        )
+
+    assert getattr(exc_info.value, "status_code", None) == 400
+    assert "Unsupported Ollama model" in str(getattr(exc_info.value, "detail", ""))
+
+
 def test_ask_gemini_requires_project(monkeypatch):
     server = server_module()
 
@@ -150,3 +192,20 @@ def test_check_gemini_warns_when_credential_file_is_missing(monkeypatch, tmp_pat
 
     assert status.status == "warning"
     assert "credential" in status.detail.lower()
+
+
+def test_check_gemini_accepts_authorized_user_adc_credentials(monkeypatch, tmp_path):
+    server = server_module()
+    credential_path = tmp_path / "authorized-user.json"
+    credential_path.write_text(
+        '{"type":"authorized_user","client_id":"client","client_secret":"secret","refresh_token":"token"}',
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "project-123")
+    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(credential_path))
+
+    status = server._check_gemini()
+
+    assert status.status == "ok"
+    assert "gemini-2.5-flash" in status.detail

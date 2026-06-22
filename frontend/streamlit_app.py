@@ -13,6 +13,10 @@ GEMINI_ENDPOINT = f"{API_BASE}/api/ask/gemini"
 HEALTH_ENDPOINT = f"{API_BASE}/health/services"
 ASK_TIMEOUT_SECONDS = 180.0
 HEALTH_TIMEOUT_SECONDS = 6.0
+OLLAMA_MODEL_OPTIONS = {
+    "Qwen": "qwen3:4b-instruct",
+    "EXAONE": "exaone3.5:7.8b",
+}
 
 STATUS_LABELS = {
     "ok": "정상",
@@ -84,7 +88,8 @@ def _render_main() -> None:
     col_qwen, col_gemini = st.columns(2)
 
     with col_qwen:
-        _render_panel_header("EC2 Ollama / Qwen", status, "ollama")
+        _render_panel_header("EC2 Ollama", status, "ollama")
+        selected_ollama_model = _render_ollama_model_selector()
         st.caption("온프레미스 RAG 답변 생성")
         st.divider()
         _render_chat_history(st.session_state.qwen_messages)
@@ -101,13 +106,28 @@ def _render_main() -> None:
 
     _append_user_message(question)
     payload = {"question": question}
+    live_containers = {
+        "qwen": _render_live_user_message(col_qwen, question),
+        "gemini": _render_live_user_message(col_gemini, question),
+    }
 
     with st.spinner("두 모델에서 동시에 답변을 생성하는 중..."):
-        results = _ask_both_models(payload)
+        for model_key, result in _iter_model_results(
+            payload,
+            selected_ollama_model=selected_ollama_model,
+        ):
+            messages_key = f"{model_key}_messages"
+            _append_assistant_message(messages_key, result)
+            with live_containers[model_key]:
+                _render_message(st.session_state[messages_key][-1])
 
-    _append_assistant_message("qwen_messages", results["qwen"])
-    _append_assistant_message("gemini_messages", results["gemini"])
-    st.rerun()
+
+def _render_live_user_message(column: Any, question: str) -> Any:
+    with column:
+        container = st.container()
+        with container:
+            _render_message({"role": "user", "content": question})
+        return container
 
 
 def _fetch_service_status() -> dict[str, Any]:
@@ -124,16 +144,39 @@ def _fetch_service_status() -> dict[str, Any]:
         }
 
 
-def _ask_both_models(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+def _render_ollama_model_selector() -> str:
+    label = st.radio(
+        "Ollama 모델",
+        options=list(OLLAMA_MODEL_OPTIONS.keys()),
+        horizontal=True,
+        key="selected_ollama_model_label",
+    )
+    model = OLLAMA_MODEL_OPTIONS[str(label)]
+    st.caption(f"선택 모델: `{model}`")
+    return model
+
+
+def _ask_both_models(
+    payload: dict[str, Any], *, selected_ollama_model: str
+) -> dict[str, dict[str, Any]]:
+    return {
+        model_key: result
+        for model_key, result in _iter_model_results(
+            payload,
+            selected_ollama_model=selected_ollama_model,
+        )
+    }
+
+
+def _iter_model_results(payload: dict[str, Any], *, selected_ollama_model: str) -> Any:
+    qwen_payload = {**payload, "llm_model": selected_ollama_model}
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {
-            executor.submit(_call_rag, QWEN_ENDPOINT, payload): "qwen",
+            executor.submit(_call_rag, QWEN_ENDPOINT, qwen_payload): "qwen",
             executor.submit(_call_rag, GEMINI_ENDPOINT, payload): "gemini",
         }
-        results: dict[str, dict[str, Any]] = {}
         for future in as_completed(futures):
-            results[futures[future]] = future.result()
-    return results
+            yield futures[future], future.result()
 
 
 def _call_rag(url: str, payload: dict[str, Any]) -> dict[str, Any]:

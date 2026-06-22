@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import is_dataclass, replace
 from pathlib import Path
 from time import perf_counter
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -28,6 +30,7 @@ _HEALTH_TIMEOUT_SECONDS = 5.0
 _DEFAULT_GEMINI_LOCATION = "us-central1"
 _DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 _DEFAULT_GEMINI_THINKING_BUDGET = 0
+_SUPPORTED_OLLAMA_MODELS = ("qwen3:4b-instruct", "exaone3.5:7.8b")
 _CONVENIENCE_FILTER_FIELDS = (
     "source_path",
     "document_id",
@@ -48,6 +51,7 @@ _CONVENIENCE_FILTER_FIELDS = (
 
 class AskRequest(BaseModel):
     question: str
+    llm_model: str | None = None
     top_k: int | None = None
     metadata_filter: dict[str, Any] | None = None
     source_path: str | None = None
@@ -102,7 +106,7 @@ def health_services() -> HealthResponse:
 
 @app.post("/api/ask/qwen", response_model=AskResponse)
 def ask_qwen(req: AskRequest) -> AskResponse:
-    settings = Settings.from_env()
+    settings = _settings_for_requested_ollama_model(Settings.from_env(), req.llm_model)
     started = perf_counter()
     try:
         result = answer_question(
@@ -162,6 +166,34 @@ def _ask_response(result: dict[str, Any], started: float) -> AskResponse:
 
 def _resolve_top_k(req: AskRequest, settings: Settings) -> int:
     return settings.retrieval_top_k if req.top_k is None else req.top_k
+
+
+def _settings_for_requested_ollama_model(
+    settings: Settings, requested_model: str | None
+) -> Settings:
+    model = requested_model.strip() if requested_model else ""
+    if not model:
+        return settings
+
+    if model not in _SUPPORTED_OLLAMA_MODELS:
+        supported = ", ".join(_SUPPORTED_OLLAMA_MODELS)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported Ollama model {model!r}. Supported models: {supported}.",
+        )
+
+    if model == settings.llm_model:
+        return settings
+
+    if is_dataclass(settings):
+        return replace(settings, llm_model=model)
+
+    values = vars(settings).copy()
+    values["llm_model"] = model
+    try:
+        return type(settings)(**values)
+    except TypeError:
+        return SimpleNamespace(**values)
 
 
 def _build_metadata_filter(req: AskRequest) -> dict[str, str] | None:
@@ -259,18 +291,35 @@ def _credential_file_status(credential_path: str) -> ServiceStatus | None:
     except Exception as exc:
         return ServiceStatus(status="warning", detail=f"Credential file is not valid JSON: {exc}")
 
-    required_fields = ("type", "project_id", "client_email", "private_key")
-    if any(not data.get(field) for field in required_fields):
+    credential_type = data.get("type")
+    if credential_type == "service_account":
+        required_fields = ("project_id", "client_email", "private_key")
+        if any(not data.get(field) for field in required_fields):
+            return ServiceStatus(
+                status="warning",
+                detail="Service account credential file is missing required fields.",
+            )
+        return None
+    if credential_type == "authorized_user":
+        required_fields = ("client_id", "client_secret", "refresh_token")
+        if any(not data.get(field) for field in required_fields):
+            return ServiceStatus(
+                status="warning",
+                detail="Authorized user credential file is missing required fields.",
+            )
+        return None
+    if credential_type == "external_account":
+        return None
+
+    if credential_type:
         return ServiceStatus(
             status="warning",
-            detail="Credential file is present but does not look like a service account key.",
+            detail=f"Credential file type {credential_type!r} is not supported.",
         )
-    if data.get("type") != "service_account":
-        return ServiceStatus(
-            status="warning",
-            detail="Credential file is present but is not a service account key.",
-        )
-    return None
+    return ServiceStatus(
+        status="warning",
+        detail="Credential file is present but does not include a credential type.",
+    )
 
 
 def _gemini_project() -> str:
