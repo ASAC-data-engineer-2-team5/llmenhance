@@ -85,6 +85,23 @@ RAG query: app/rag_pipeline.py, scripts/ask_rag.py, scripts/ask_rag_gemini.py, t
 
 If a task needs another owner's file, stop and report the dependency instead of editing it directly.
 
+## Git Change Review and Publishing
+
+Before committing or opening a PR, review the actual file-level changes instead of relying only on a summary.
+
+Required workflow:
+
+```text
+1. Run git status --short --branch to confirm the working tree scope.
+2. For each changed file, inspect git diff for that file and check that the change is intentional.
+3. Run git diff --check to catch whitespace and conflict-marker issues.
+4. If the diff is clean and relevant verification has passed, commit the intended files.
+5. Push the branch and open a PR against origin/main, or update the existing PR for the branch.
+6. In the final report, include the commit, PR link, and verification commands that passed or could not be run.
+```
+
+Do not stage unrelated files just to make the working tree clean.
+
 ## Verification Commands
 
 Run these before claiming relevant work is complete:
