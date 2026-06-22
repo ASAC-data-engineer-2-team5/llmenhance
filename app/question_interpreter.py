@@ -28,18 +28,27 @@ class InterpretedQuestion:
     intent: str
     canonical_question: str
     conditions: dict[str, str]
+    retrieval_question: str
 
 
 def interpret_question(question: str) -> InterpretedQuestion:
-    normalized = question.strip()
-    conditions = _extract_conditions(normalized)
-    intent = _classify_intent(normalized)
-    canonical_question = _build_canonical_question(normalized, intent, conditions)
+    original_question = question.strip()
+    normalized_question = _normalize_retrieval_question(original_question)
+    conditions = _extract_conditions(normalized_question)
+    intent = _classify_intent(normalized_question)
+    retrieval_question = _build_retrieval_question(normalized_question, intent, conditions)
+    canonical_question = _build_canonical_question(
+        original_question,
+        normalized_question,
+        intent,
+        conditions,
+    )
     return InterpretedQuestion(
-        original_question=normalized,
+        original_question=original_question,
         intent=intent,
         canonical_question=canonical_question,
         conditions=conditions,
+        retrieval_question=retrieval_question,
     )
 
 
@@ -87,13 +96,16 @@ def _extract_amount(question: str) -> str | None:
 
 
 def _build_canonical_question(
-    original_question: str, intent: str, conditions: dict[str, str]
+    original_question: str,
+    retrieval_question: str,
+    intent: str,
+    conditions: dict[str, str],
 ) -> str:
     if intent == GENERAL_QA:
         return original_question
 
     if intent == ELIGIBILITY_CHECK:
-        if _is_annual_leave_deadline_check(original_question, conditions):
+        if _is_annual_leave_deadline_check(retrieval_question, conditions):
             lead_time = conditions["lead_time"]
             return (
                 f"원 질문: {original_question}\n"
@@ -156,3 +168,47 @@ def _lead_time_to_days_text(lead_time: str) -> str:
 
 def _contains_any(text: str, markers: tuple[str, ...]) -> bool:
     return any(marker in text for marker in markers)
+
+
+def _normalize_retrieval_question(question: str) -> str:
+    normalized = question.strip()
+    normalized = _replace_relative_day_words(normalized)
+    replacements = (
+        (r"연차\s*신청", "연차 신청"),
+        (r"출장비\s*정산", "출장비 정산"),
+        (r"경비\s*처리", "경비 처리"),
+        (r"재택근무\s*승인", "재택근무 승인"),
+        (r"해도\s*될까요", "해도 될까요"),
+        (r"할\s*수\s*있나요", "할 수 있나요"),
+        (r"며칠\s*전까지", "며칠 전까지"),
+        (r"몇\s*일\s*전까지", "몇 일 전까지"),
+    )
+    for pattern, replacement in replacements:
+        normalized = re.sub(pattern, replacement, normalized)
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _build_retrieval_question(
+    normalized_question: str,
+    intent: str,
+    conditions: dict[str, str],
+) -> str:
+    if intent == ELIGIBILITY_CHECK and _is_annual_leave_deadline_check(
+        normalized_question,
+        conditions,
+    ):
+        return "연차 유급휴가 신청 기한 최소 영업일 전"
+    return normalized_question
+
+
+def _replace_relative_day_words(question: str) -> str:
+    day_words = {
+        "하루": "1일",
+        "이틀": "2일",
+        "사흘": "3일",
+        "나흘": "4일",
+    }
+    normalized = question
+    for word, replacement in day_words.items():
+        normalized = re.sub(rf"{word}\s*(뒤|후|전)", rf"{replacement} \1", normalized)
+    return normalized
