@@ -540,6 +540,24 @@ dynamic thinking을 실험하려면:
 --thinking-budget -1
 ```
 
+## Presentation Split Chat Frontend
+
+발표용 프론트엔드는 화면을 반반 나눠 왼쪽에는 local `Ollama + Qwen` RAG 챗봇을, 오른쪽에는 `AWS Bedrock` API 모델 RAG 챗봇을 보여줍니다.
+
+저장된 데모 결과만으로도 화면을 열 수 있습니다.
+
+```powershell
+docker compose run --rm -p 8787:8787 rag-api python scripts/presentation_frontend.py --host 0.0.0.0 --port 8787
+```
+
+브라우저에서 엽니다.
+
+```text
+http://localhost:8787
+```
+
+저장된 결과는 AWS credentials 없이 동작합니다. `두 챗봇 실시간 실행` 버튼은 컨테이너에서 사용할 수 있는 AWS credentials와 `BEDROCK_MODEL_ID` 설정이 필요합니다.
+
 ## Timing 로그 해석
 
 `--timing`을 붙이면 단계별 병목을 볼 수 있습니다.
