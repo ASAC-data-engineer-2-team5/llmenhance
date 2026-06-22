@@ -9,3 +9,10 @@ qdrant-client
 pyyaml
 streamlit
 uvicorn[standard]
+
+ragas==0.1.21
+langchain-aws
+datasets
+anthropic[bedrock]
+langchain_google_genai
+psutil

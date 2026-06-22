@@ -1,0 +1,539 @@
+{
+  "timestamp": "20260622_152105",
+  "judge_model": "amazon.nova-pro-v1:0",
+  "embed_model": "amazon.titan-embed-text-v2:0",
+  "n_runs": 1,
+  "n_questions": 5,
+  "summary": {
+    "qwen_fulltext": {
+      "avg_score": 95,
+      "std_score": 0.0,
+      "avg_embed_similarity": 0.7539
+    },
+    "qwen_rag": {
+      "avg_score": 93,
+      "std_score": 0.0,
+      "avg_embed_similarity": 0.7149
+    },
+    "exaone_fulltext": {
+      "avg_score": 83,
+      "std_score": 0.0,
+      "avg_embed_similarity": 0.6897
+    },
+    "exaone_rag": {
+      "avg_score": 44,
+      "std_score": 0.0,
+      "avg_embed_similarity": 0.3651
+    },
+    "claude_fulltext": {
+      "avg_score": 95,
+      "std_score": 0.0,
+      "avg_embed_similarity": 0.6703
+    },
+    "claude_rag": {
+      "avg_score": 46,
+      "std_score": 0.0,
+      "avg_embed_similarity": 0.5227
+    },
+    "gemini_fulltext": {
+      "avg_score": null,
+      "std_score": null
+    },
+    "gemini_rag": {
+      "avg_score": null,
+      "std_score": null
+    }
+  },
+  "details": [
+    {
+      "id": "q01",
+      "type": "일상어",
+      "question": "신입사원은 입사하고 며칠 안에 규정 교육을 받아야 하나요?",
+      "ground_truth": "신규 입사자는 입사일로부터 7일 이내에 규정집 핵심 내용 교육을 이수하고 규정 숙지 확인서에 서명해 인사담당 부서에 제출해야 한다.",
+      "answers": {
+        "qwen_fulltext": "신입사원은 입사일로부터 7일 이내에 본 규정집의 핵심 내용에 대한 교육을 이수하고, 규정 숙지 확인서에 서명하여 인사담당 부서에 제출해야 합니다....",
+        "qwen_rag": "신입사원은 입사일로부터 7일 이내에 본 규정집의 핵심 내용에 대한 교육을 이수하고, 규정 숙지 확인서에 서명하여 인사담당 부서에 제출하여야 한다.  \n→ 근거: 제1조 ③ [세부 절차]  \n\n(답변은 제1조 ③에 근거하여 작성되었으며, 원문 질문에 맞게 \"입사하고 며칠...",
+        "exaone_fulltext": "신입사원은 입사일로부터 7일 이내에 규정 교육을 받아야 합니다....",
+        "exaone_rag": "문서에서 확인되지 않습니다. 정확한 기간은 회사의 신입사원 온보딩 프로그램에 따라 다를 수 있습니다. 인사팀에 문의하시는 것이 가장 정확한 정보를 얻는 방법일 것입니다....",
+        "claude_fulltext": "## 신입사원 규정 교육 이수 기한\n\n**제1조 제③항(세부 절차)**에 따르면, 신규 입사자는 **입사일로부터 7일 이내**에 규정집의 핵심 내용에 대한 교육을 이수하여야 합니다.\n\n또한 교육 이수 후에는 **규정 숙지 확인서에 서명**하여 인사담당 부서에 제출하는 ...",
+        "claude_rag": "제가 특정 회사나 기관의 내부 규정에 대한 정보를 갖고 있지 않아서, **어느 회사/기관**을 말씀하시는지에 따라 답변이 달라질 수 있습니다.\n\n---\n\n### 일반적인 경우\n\n| 구분 | 내용 |\n|------|------|\n| **법정 의무교육** | 근로기준법, ...",
+        "gemini_fulltext": null,
+        "gemini_rag": null
+      },
+      "judged": {
+        "qwen_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용이 없으며, 담당 부서와 표준 용어 사용이 적절하다. 길이도 적절하다.",
+          "embed_score": 0.9107
+        },
+        "qwen_rag": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 추가하지 않았으며, 담당 부서와 용어 사용이 적절하고, 길이도 적절하다.",
+          "embed_score": 0.807
+        },
+        "exaone_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 80,
+          "reason": "답변 내용은 정답 기준과 의미적으로 일치하고, 허위 사실을 생성하지 않았으나, 담당 부서 언급이 누락되었으며, 내용이 다소 간결하지 못함.",
+          "embed_score": 0.7564
+        },
+        "exaone_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 40,
+          "reason": "답변이 정답 기준과 의미적으로 일치하지 않고, 불필요한 추가 정보를 포함하여 길이가 적절하지 않다.",
+          "embed_score": 0.468
+        },
+        "claude_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용이 없으며, 담당 부서와 표준 용어 사용이 적절하고, 길이도 적절하다.",
+          "embed_score": 0.7505
+        },
+        "claude_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 40,
+          "reason": "답변이 정답 기준과 의미적으로 일치하지 않고, 구체적인 회사나 기관에 대한 정보를 요구함으로써 불필요하게 길어졌으며, 담당 부서에 대한 언급도 불충분하다.",
+          "embed_score": 0.6317
+        },
+        "gemini_fulltext": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        },
+        "gemini_rag": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        }
+      }
+    },
+    {
+      "id": "q02",
+      "type": "조항용어",
+      "question": "제1조에서 규정집의 적용 대상은 누구로 정하고 있나요?",
+      "ground_truth": "회사와 근로계약을 체결한 사원 및 임원을 포함한 임직원 전체에 적용된다. 다만 파견근로자, 외주인력, 해외 근무자는 일부 사항을 별도 기준으로 적용한다.",
+      "answers": {
+        "qwen_fulltext": "제1조에서 규정집의 적용 대상은 회사와 근로계약을 체결한 사원 및 임원을 포함한 임직원 전체입니다. 다만, 파견근로자, 외주인력, 해외 근무자에 대해서는 각각의 특별 기준을 적용합니다....",
+        "qwen_rag": "제1조에서 규정집의 적용 대상은 회사와 근로계약을 체결한 사원 및 임원을 포함한 임직원 전체에 적용됩니다. 단, 파견근로자, 외주인력, 해외 근무자에 대해서는 각각의 특수 조건이 적용됩니다.\n\n→ 근거: 제1조 ②항...",
+        "exaone_fulltext": "제1조에서 규정집의 적용 대상은 회사와 근로계약을 체결한 사원 및 임원을 포함한 임직원 전체입니다. 단, 파견근로자, 외주인력, 해외 근무자 등 특정 경우에는 별도의 기준이 적용될 수 있습니다....",
+        "exaone_rag": "문서에서 확인되지 않습니다. 제1조의 구체적인 내용이 제공되지 않았습니다. 규정집의 적용 대상에 대한 정보를 정확히 제공하기 위해서는 해당 조항의 내용이 필요합니다....",
+        "claude_fulltext": "## 규정집 적용 대상 (제1조 제②항)\n\n**기본 적용 대상**\n본 규정집은 **회사와 근로계약을 체결한 사원 및 임원을 포함한 임직원 전체**에게 적용됩니다.\n\n---\n\n**별도 기준 적용 대상**\n\n다만, 아래 세 가지 경우에는 해당 항목의 기준을 별도로 적용합니...",
+        "claude_rag": "질문하신 내용은 특정 규정집의 제1조에 관한 것인데, **어떤 규정집인지 구체적인 문서나 자료를 제공해 주시지 않아** 정확한 답변을 드리기 어렵습니다.\n\n---\n\n질문하시는 규정집이 어떤 것인지 알려주시면 더 정확한 답변을 드릴 수 있습니다. 예를 들어:\n\n- 📌 *...",
+        "gemini_fulltext": null,
+        "gemini_rag": null
+      },
+      "judged": {
+        "qwen_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 추가하지 않았으며, 부서 언급이 없어도 맥락에 맞고, 사내 표준 용어를 사용했으며, 정보 누락 없이 간결하다.",
+          "embed_score": 0.7065
+        },
+        "qwen_rag": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 90,
+          "reason": "답변 내용이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 지어내지 않았으며, 부서명 언급 없이도 맥락에 맞고, 사내 표준 용어를 사용했으며, 정보 누락 없이 간결하다.",
+          "embed_score": 0.6527
+        },
+        "exaone_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 90,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 추가하지 않았으며, 부서명을 언급하지 않아도 맥락에 맞고, 사내 표준 용어를 사용했으며, 정보 누락 없이 간결하다.",
+          "embed_score": 0.7042
+        },
+        "exaone_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 40,
+          "reason": "답변이 정답 기준과 일치하지 않으며, 제1조의 구체적인 내용이 필요하다고 언급함.",
+          "embed_score": 0.1377
+        },
+        "claude_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 추가하지 않았으며, 부서 언급이 없어도 맥락에 맞고, 사내 표준 용어를 사용했으며, 정보 누락 없이 간결하다.",
+          "embed_score": 0.6436
+        },
+        "claude_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 30,
+          "reason": "답변이 정답 기준과 의미적으로 일치하지 않고, 필요한 정보를 누락하며 너무 길다.",
+          "embed_score": 0.2171
+        },
+        "gemini_fulltext": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        },
+        "gemini_rag": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        }
+      }
+    },
+    {
+      "id": "q03",
+      "type": "일상어",
+      "question": "토요일이나 공휴일도 영업일에 들어가나요?",
+      "ground_truth": "영업일은 토요일, 일요일 및 관계 법령상 공휴일을 제외한 회사의 정상 근무일을 말한다.",
+      "answers": {
+        "qwen_fulltext": "아니요, 토요일이나 공휴일은 영업일에 들어가지 않습니다. 영업일은 토요일, 일요일 및 관계 법령상 공휴일을 제외한 회사의 정상 근무일을 말합니다....",
+        "qwen_rag": "문서 기준상 충족하지 않습니다.  \n\n제2조 제9항에 따르면, \"영업일: 토요일, 일요일 및 관계 법령상 공휴일을 제외한 회사의 정상 근무일을 말한다\"고 명시되어 있습니다. 따라서 토요일이나 공휴일은 영업일에 포함되지 않습니다....",
+        "exaone_fulltext": "문서에서 명시적으로 토요일이나 공휴일을 영업일로 포함한다고 언급하고 있지 않습니다. 따라서 정확한 답변은 다음과 같습니다:\n\n**답변:** 문서에서 확인되지 않습니다. 일반적으로 토요일과 공휴일은 영업일에서 제외되지만, 회사 내부 규정에 따라 다를 수 있으므로 경영지원...",
+        "exaone_rag": "문서에서 확인되지 않습니다. 정확한 답변을 위해서는 회사의 특정 영업일 정책을 확인해야 합니다....",
+        "claude_fulltext": "## 영업일 정의\n\n아니요, 토요일과 공휴일은 영업일에 포함되지 않습니다.\n\n**제2조 제③항 제9호**에 따르면 영업일은 다음과 같이 정의됩니다.\n\n> **\"토요일, 일요일 및 관계 법령상 공휴일을 제외한 회사의 정상 근무일\"**\n\n즉, 영업일에서 제외되는 날은 아래...",
+        "claude_rag": "## 영업일(Business Day) 기준\n\n**일반적으로 토요일과 공휴일은 영업일에 포함되지 않습니다.**\n\n---\n\n### 📅 영업일 기준\n\n| 구분 | 영업일 포함 여부 |\n|------|--------------|\n| 월~금요일 (평일) | ✅ 포함 |\n| 토요...",
+        "gemini_fulltext": null,
+        "gemini_rag": null
+      },
+      "judged": {
+        "qwen_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용이 없으며, 부서 언급이 없어도 맥락에 맞고, 사내 표준 용어를 사용했으며, 정보 누락 없이 간결하다.",
+          "embed_score": 0.8473
+        },
+        "qwen_rag": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 90,
+          "reason": "답변 내용이 정답 기준과 일치하고, 불필요한 내용이 없으며, 용어 사용도 적절하나, 담당 부서에 대한 언급이 없다.",
+          "embed_score": 0.7613
+        },
+        "exaone_fulltext": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 60,
+          "reason": "답변 내용이 정답 기준과 의미적으로 일치하지 않아 점수가 낮습니다.",
+          "embed_score": 0.7194
+        },
+        "exaone_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 40,
+          "reason": "답변이 정답 기준과 의미적으로 일치하지 않고, 불필요한 추가 정보를 포함하며, 부서 언급이 없고, 표준 용어를 사용했으나 답변이 너무 모호하고 길다.",
+          "embed_score": 0.4845
+        },
+        "claude_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 일치하고, 불필요한 내용이 없으며, 부서 언급이 없어도 적절하고, 사내 표준 용어를 사용했으며, 길이가 적절하다.",
+          "embed_score": 0.8038
+        },
+        "claude_rag": {
+          "content_correct": false,
+          "hallucination_free": false,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 50,
+          "reason": "답변은 정답 기준과 의미적으로 일치하지 않으며, 불필요한 예외적인 경우를 언급하여 혼란을 줄 수 있다. 또한 부서 언급이 없고 내용이 지나치게 길다.",
+          "embed_score": 0.7777
+        },
+        "gemini_fulltext": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        },
+        "gemini_rag": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        }
+      }
+    },
+    {
+      "id": "q04",
+      "type": "조항용어",
+      "question": "규정집에서 '임원'은 어떻게 정의되어 있나요?",
+      "ground_truth": "임원은 회사 정관에 따라 선임된 대표이사, 이사, 감사를 말한다.",
+      "answers": {
+        "qwen_fulltext": "규정집에서 '임원'은 \"회사 정관에 따라 선임된 대표이사, 이사, 감사를 말한다\"고 정의되어 있습니다....",
+        "qwen_rag": "제2조 ④에서 '임원'은 회사 정관에 따라 선임된 대표이사, 이사, 감사를 말한다....",
+        "exaone_fulltext": "규정집에서 '임원'은 회사 정관에 따라 선임된 대표이사, 이사, 감사를 의미합니다....",
+        "exaone_rag": "문서에서 확인되지 않습니다. 임원에 대한 구체적인 정의는 제공된 맥락에서 명시되지 않았습니다. 규정집을 직접 참조하시는 것이 가장 정확한 정보를 얻는 방법일 것입니다....",
+        "claude_fulltext": "## 임원의 정의\n\n규정집 **제2조(용어의 정의) 제③항 제4호**에 따르면, 임원은 다음과 같이 정의됩니다.\n\n> **\"임원: 회사 정관에 따라 선임된 대표이사, 이사, 감사를 말한다.\"**\n\n---\n\n### 관련 보충 사항\n\n**비상근 감사·사외이사 등의 경우**...",
+        "claude_rag": "제가 접근할 수 있는 특정 규정집이 없기 때문에, **어떤 규정집을 말씀하시는지** 확인이 필요합니다.\n\n---\n\n## 일반적인 '임원' 정의 예시\n\n**상법 기준**\n- 이사, 감사 등 회사의 경영을 담당하는 자\n\n**일반적인 회사 규정 기준**\n- 대표이사, 이사,...",
+        "gemini_fulltext": null,
+        "gemini_rag": null
+      },
+      "judged": {
+        "qwen_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용이 없으며, 부서 언급이 없어도 맥락에 맞고, 사내 표준 용어를 사용했으며, 간결하고 명확하다.",
+          "embed_score": 0.8198
+        },
+        "qwen_rag": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 추가하지 않았으며, 부서 언급이 없어도 맥락에 맞고, 사내 표준 용어를 사용했으며, 정보 누락 없이 간결하다.",
+          "embed_score": 0.871
+        },
+        "exaone_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변 내용이 정답 기준과 의미적으로 일치하고, 불필요한 내용이 없으며, 부서 언급이 없어도 맥락에 맞고, 사내 표준 용어를 사용했으며, 길이도 적절하다.",
+          "embed_score": 0.7706
+        },
+        "exaone_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 50,
+          "reason": "답변이 정답 기준과 일치하지 않고, 임원에 대한 구체적인 정의를 제공하지 않았으나, 불필요한 정보를 추가하지 않았다.",
+          "embed_score": 0.3757
+        },
+        "claude_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 일치하고, 추가 정보를 적절히 제공하며, 용어 사용과 길이도 적절하다.",
+          "embed_score": 0.6846
+        },
+        "claude_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 40,
+          "reason": "답변이 정답 기준과 의미적으로 일치하지 않고, 불필요한 정보를 추가했으며, 부서 언급이 없고, 표준 용어를 사용했으나 답변의 길이가 지나치게 길다.",
+          "embed_score": 0.578
+        },
+        "gemini_fulltext": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        },
+        "gemini_rag": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        }
+      }
+    },
+    {
+      "id": "q05",
+      "type": "일상어",
+      "question": "회사 규정을 새로 만들거나 바꾸려면 어떤 단계를 거쳐야 하나요?",
+      "ground_truth": "발의 → 검토 → 협의 → 승인 → 공표 → 시행의 절차를 거친다. 공표일로부터 5영업일이 지난 날부터 시행한다.",
+      "answers": {
+        "qwen_fulltext": "회사 규정을 새로 만들거나 바꾸려면 다음 단계를 거쳐야 합니다:\n\n1. **발의**: 부서장 또는 임원이 규정 제정·개정안과 그 사유를 작성하여 경영지원팀에 제출한다.  \n2. **검토**: 경영지원팀이 제출일로부터 5영업일 이내에 기존 규정과의 상충 여부 및 관계 법...",
+        "qwen_rag": "회사 규정을 새로 만들거나 바꾸려면 다음 단계를 거쳐야 합니다.\n\n1. **발의**: 부서장 또는 임원은 규정 제정·개정안과 그 사유를 작성하여 경영지원팀에 제출한다.  \n2. **검토**: 경영지원팀은 제출일로부터 5영업일 이내에 기존 규정과의 상충 여부 및 관계 법...",
+        "exaone_fulltext": "회사 규정을 새로 만들거나 바꾸려면 다음 단계를 거쳐야 합니다:\n\n1. **발의**: 부서장 또는 임원이 규정 제정·개정안과 그 사유를 작성하여 경영지원팀에 제출합니다.\n2. **검토**: 경영지원팀은 제출 후 5영업일 이내에 기존 규정과의 상충 여부 및 관계 법령 부...",
+        "exaone_rag": "회사 규정을 새로 만들거나 바꾸는 일반적인 단계는 다음과 같습니다:\n\n1. **필요성 검토**: 변경이나 신설의 필요성을 평가하고, 관련 부서나 팀과 상의합니다.\n2. **계획 수립**: 변경 사항의 세부 내용을 정리하고, 목표와 기대 효과를 명확히 합니다.\n3. **...",
+        "claude_fulltext": "# 규정 제정·개정 절차 안내\n\n**제3조(규정의 제정·개정 및 폐기 절차)** 에 따르면, 규정을 새로 만들거나 변경할 때는 아래 단계를 순서대로 거쳐야 합니다.\n\n---\n\n## 표준 절차 (6단계)\n\n| 단계 | 담당 | 내용 | 기한 |\n|------|------...",
+        "claude_rag": "# 회사 규정 제정·변경 절차\n\n## 📋 일반적인 단계\n\n### 1단계: 필요성 검토\n- 변경/신설 사유 파악\n- 관련 법령 검토 (근로기준법 등)\n- 현행 규정과의 충돌 여부 확인\n\n### 2단계: 초안 작성\n- 담당 부서(인사/법무/총무) 초안 작성\n- 전문가 검토...",
+        "gemini_fulltext": null,
+        "gemini_rag": null
+      },
+      "judged": {
+        "qwen_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 지어내지 않았으며, 담당 부서와 용어 사용이 적절하다. 내용이 상세하지만 필요한 정보를 모두 포함하고 있어 길이가 적절하다.",
+          "embed_score": 0.4852
+        },
+        "qwen_rag": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 추가하지 않았으며, 담당 부서와 용어 사용이 적절하다. 다만, 약간의 세부 정보가 추가되어 있어 길이가 적절하지 않다고 판단되어 점수를 95로 하였다.",
+          "embed_score": 0.4824
+        },
+        "exaone_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 90,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 지어내지 않았으며, 담당 부서와 용어 사용이 적절하고, 길이도 적절하다. 다만, 임베딩 유사도가 낮은 점을 고려하여 점수를 조정하였다.",
+          "embed_score": 0.498
+        },
+        "exaone_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": false,
+          "terms_compliant": true,
+          "length_appropriate": false,
+          "score": 50,
+          "reason": "정답 기준과 의미적으로 일치하지 않고, 불필요한 세부 내용이 포함되어 있으며, 담당 부서에 대한 언급이 부족하다.",
+          "embed_score": 0.3595
+        },
+        "claude_fulltext": {
+          "content_correct": true,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 95,
+          "reason": "답변이 정답 기준과 의미적으로 일치하고, 불필요한 내용을 지어내지 않았으며, 담당 부서와 용어 사용이 적절하다. 다만, 약간의 상세 정보가 추가되어 있어 완벽한 점수는 아니다.",
+          "embed_score": 0.4688
+        },
+        "claude_rag": {
+          "content_correct": false,
+          "hallucination_free": true,
+          "department_appropriate": true,
+          "terms_compliant": true,
+          "length_appropriate": true,
+          "score": 70,
+          "reason": "정답 기준과 의미적으로 일치하지 않으나, 추가적인 세부 정보를 잘 제공했다.",
+          "embed_score": 0.4089
+        },
+        "gemini_fulltext": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        },
+        "gemini_rag": {
+          "content_correct": null,
+          "hallucination_free": null,
+          "department_appropriate": null,
+          "terms_compliant": null,
+          "length_appropriate": null,
+          "score": null,
+          "embed_score": null,
+          "reason": "답변 생성 실패"
+        }
+      }
+    }
+  ]
+}

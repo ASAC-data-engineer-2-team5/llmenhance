@@ -1,3 +1,10 @@
+"""Ollama Qwen 클라이언트.
+
+chat_qwen()은 {"content": str, "eval_count": int | None, "eval_duration_ns": int | None}
+형태의 dict를 반환한다. eval_count / eval_duration_ns는 Ollama가 제공할 때만 채워진다.
+"""
+from __future__ import annotations
+
 import logging
 from typing import Any
 
@@ -20,7 +27,16 @@ def chat_qwen(
     temperature: float,
     num_ctx: int,
     num_predict: int,
-) -> str:
+) -> dict[str, Any]:
+    """Ollama /api/chat를 호출하고 결과를 dict로 반환한다.
+
+    Returns:
+        {
+            "content": str,               # 모델 응답 텍스트
+            "eval_count": int | None,     # 생성 토큰 수 (Ollama 제공 시)
+            "eval_duration_ns": int | None,  # 생성 소요 시간 나노초 (Ollama 제공 시)
+        }
+    """
     path = "/api/chat"
     request_json = {
         "model": model,
@@ -44,7 +60,7 @@ def chat_qwen(
             timeout=TIMEOUT_SECONDS,
         )
         response.raise_for_status()
-        return _parse_chat_content(response.json())
+        return _parse_chat_response(response.json())
     except httpx.HTTPStatusError as exc:
         response_body = _truncate_response_text(exc.response.text)
         LOGGER.warning(
@@ -79,8 +95,12 @@ def _truncate_response_text(text: str, max_length: int = 1000) -> str:
     return f"{normalized[:max_length]}...<truncated>"
 
 
-def _parse_chat_content(payload: Any) -> str:
+def _parse_chat_response(payload: Any) -> dict[str, Any]:
     content = payload["message"]["content"]
     if not isinstance(content, str):
         raise ValueError("chat response message content must be a string")
-    return content
+    return {
+        "content": content,
+        "eval_count": payload.get("eval_count"),
+        "eval_duration_ns": payload.get("eval_duration_ns"),
+    }

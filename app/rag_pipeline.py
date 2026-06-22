@@ -147,7 +147,7 @@ def answer_question(
             active_settings.temperature,
             active_settings.num_ctx,
             active_settings.num_predict,
-        ).strip(),
+        )["content"].strip(),
     )
     if not answer:
         return _fallback_result()

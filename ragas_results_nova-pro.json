@@ -1,0 +1,21 @@
+{
+  "timestamp": "20260622_170913",
+  "judge_model": "nova-pro",
+  "llm_model": "qwen3:4b-instruct",
+  "n_runs": 1,
+  "n_questions": 76,
+  "result": {
+    "faithfulness": {
+      "mean": null,
+      "std": 0.0
+    },
+    "answer_relevancy": {
+      "mean": null,
+      "std": 0.0
+    },
+    "context_recall": {
+      "mean": null,
+      "std": 0.0
+    }
+  }
+}

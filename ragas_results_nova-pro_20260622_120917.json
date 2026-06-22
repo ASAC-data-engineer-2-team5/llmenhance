@@ -1,0 +1,10 @@
+{
+  "timestamp": "20260622_120917",
+  "judge_model": "nova-pro",
+  "n_runs": 1,
+  "n_questions": 5,
+  "models": {
+    "qwen": null,
+    "exaone": null
+  }
+}
