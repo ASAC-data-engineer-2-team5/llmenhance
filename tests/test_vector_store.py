@@ -430,7 +430,9 @@ def test_search_chunks_builds_hybrid_prefetch_with_rrf_fusion(monkeypatch):
     assert call["query"] == FakeFusionQuery(fusion=FakeFusion.RRF)
     assert call["with_payload"] is True
     assert call["with_vectors"] is False
+    # RRF 가중치 dense:sparse = 2:1 → dense prefetch 가 2번 들어간다.
     assert call["prefetch"] == [
+        FakePrefetch(query=[0.1, 0.2], using="dense", limit=7, filter=None),
         FakePrefetch(query=[0.1, 0.2], using="dense", limit=7, filter=None),
         FakePrefetch(
             query=FakeSparseVector(indices=[5, 9], values=[1.0, 2.0]),
@@ -461,8 +463,8 @@ def test_search_chunks_applies_metadata_filter_to_each_prefetch(monkeypatch):
         ]
     )
     prefetch = clients[0].query_points_calls[0]["prefetch"]
-    assert prefetch[0].filter == expected_filter
-    assert prefetch[1].filter == expected_filter
+    # prefetch[0..1] = dense(가중치 2), prefetch[2] = sparse
+    assert all(p.filter == expected_filter for p in prefetch)
 
 
 def test_search_chunks_coerces_numeric_filter_values_to_int(monkeypatch):
@@ -498,8 +500,9 @@ def test_search_chunks_without_sparse_terms_uses_dense_only(monkeypatch):
     )
 
     prefetch = clients[0].query_points_calls[0]["prefetch"]
-    assert len(prefetch) == 1
-    assert prefetch[0].using == "dense"
+    # sparse 항이 없으면 dense(가중치 2) prefetch 만 남는다.
+    assert len(prefetch) == 2
+    assert all(p.using == "dense" for p in prefetch)
 
 
 def test_search_chunks_without_sparse_vector_uses_dense_only(monkeypatch):
@@ -515,8 +518,9 @@ def test_search_chunks_without_sparse_vector_uses_dense_only(monkeypatch):
     )
 
     prefetch = clients[0].query_points_calls[0]["prefetch"]
-    assert len(prefetch) == 1
-    assert prefetch[0].using == "dense"
+    # sparse 벡터가 없으면 dense(가중치 2) prefetch 만 남는다.
+    assert len(prefetch) == 2
+    assert all(p.using == "dense" for p in prefetch)
 
 
 def test_search_chunks_rejects_sparse_query_missing_values(monkeypatch):

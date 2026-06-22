@@ -9,6 +9,11 @@ MAX_QDRANT_UNSIGNED_INTEGER_ID = 2**64 - 1
 DENSE_VECTOR_NAME = "dense"
 SPARSE_VECTOR_NAME = "bm25"
 
+# RRF 융합 가중치 — Qdrant 네이티브 RRF 는 가중치 파라미터가 없으므로
+# 같은 prefetch 를 가중치만큼 반복해 RRF 기여도를 정수배로 키운다.
+DENSE_RRF_WEIGHT = 2
+SPARSE_RRF_WEIGHT = 1
+
 
 def ensure_collection(qdrant_url: str, collection_name: str, vector_size: int) -> None:
     if vector_size <= 0:
@@ -93,6 +98,7 @@ def search_chunks(
     query_filter = _build_filter(metadata_filter)
     sparse_indices, sparse_values = _validate_sparse_query_vector(sparse_vector)
 
+    # dense prefetch 를 DENSE_RRF_WEIGHT 번 반복해 RRF 가중치(dense:sparse = 2:1)를 준다.
     prefetch = [
         models.Prefetch(
             query=dense_vector,
@@ -100,9 +106,10 @@ def search_chunks(
             limit=top_k,
             filter=query_filter,
         )
+        for _ in range(DENSE_RRF_WEIGHT)
     ]
     if sparse_indices:
-        prefetch.append(
+        prefetch.extend(
             models.Prefetch(
                 query=models.SparseVector(
                     indices=sparse_indices,
@@ -112,6 +119,7 @@ def search_chunks(
                 limit=top_k,
                 filter=query_filter,
             )
+            for _ in range(SPARSE_RRF_WEIGHT)
         )
 
     client = QdrantClient(url=qdrant_url)
