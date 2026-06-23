@@ -17,12 +17,51 @@ def test_streamlit_app_exposes_supported_ollama_model_options():
     streamlit_app = streamlit_app_module()
 
     assert streamlit_app.OLLAMA_MODEL_OPTIONS == {
-        "Qwen": "qwen3:4b-instruct",
+        "Configured": streamlit_app.DEFAULT_OLLAMA_MODEL,
+        "Qwen 2.5 7B": "qwen2.5:7b",
+        "Qwen 3 4B": "qwen3:4b-instruct",
         "EXAONE": "exaone3.5:7.8b",
     }
 
 
-def test_ask_both_models_sends_selected_ollama_model_only_to_qwen(monkeypatch):
+def test_gemini_and_bedrock_panels_are_disabled_by_default(monkeypatch):
+    streamlit_app = streamlit_app_module()
+
+    monkeypatch.delenv("ENABLE_GEMINI_PANEL", raising=False)
+    monkeypatch.delenv("ENABLE_BEDROCK_PANEL", raising=False)
+
+    assert streamlit_app._gemini_enabled() is False
+    assert streamlit_app._bedrock_enabled() is False
+
+
+def test_service_status_marks_cloud_panels_disabled_when_off(monkeypatch):
+    streamlit_app = streamlit_app_module()
+
+    monkeypatch.delenv("ENABLE_GEMINI_PANEL", raising=False)
+    monkeypatch.delenv("ENABLE_BEDROCK_PANEL", raising=False)
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "api": {"status": "ok", "detail": ""},
+                "ollama": {"status": "ok", "detail": ""},
+                "qdrant": {"status": "ok", "detail": ""},
+                "gemini": {"status": "error", "detail": "not configured"},
+                "bedrock": {"status": "warning", "detail": "no credentials"},
+            }
+
+    monkeypatch.setattr(streamlit_app.httpx, "get", lambda *args, **kwargs: FakeResponse())
+
+    status = streamlit_app._fetch_service_status()
+
+    assert status["gemini"] == {"status": "ok", "detail": "Gemini panel disabled."}
+    assert status["bedrock"] == {"status": "ok", "detail": "Bedrock panel disabled."}
+
+
+def test_ask_both_models_calls_only_qwen_by_default(monkeypatch):
     streamlit_app = streamlit_app_module()
     calls = []
 
@@ -32,19 +71,18 @@ def test_ask_both_models_sends_selected_ollama_model_only_to_qwen(monkeypatch):
 
     monkeypatch.setattr(streamlit_app, "_call_rag", fake_call_rag)
 
-    streamlit_app._ask_both_models(
+    result = streamlit_app._ask_both_models(
         {"question": "연차규정이 어떻게 되나요?"},
         selected_ollama_model="exaone3.5:7.8b",
     )
 
-    assert (
-        streamlit_app.QWEN_ENDPOINT,
-        {"question": "연차규정이 어떻게 되나요?", "llm_model": "exaone3.5:7.8b"},
-    ) in calls
-    assert (
-        streamlit_app.GEMINI_ENDPOINT,
-        {"question": "연차규정이 어떻게 되나요?"},
-    ) in calls
+    assert list(result) == ["qwen"]
+    assert calls == [
+        (
+            streamlit_app.QWEN_ENDPOINT,
+            {"question": "연차규정이 어떻게 되나요?", "llm_model": "exaone3.5:7.8b"},
+        )
+    ]
 
 
 def test_ask_both_models_uses_cloud_session_toggles_and_model_overrides(monkeypatch):
@@ -97,7 +135,7 @@ def test_ask_both_models_sends_gemini_session_endpoint_and_model(monkeypatch):
     monkeypatch.setattr(streamlit_app, "_call_rag", fake_call_rag)
 
     streamlit_app._ask_both_models(
-        {"question": "?곗감 ?좎껌"},
+        {"question": "연차 신청"},
         selected_ollama_model="qwen3:4b-instruct",
         gemini_config={
             "enabled": True,
@@ -112,7 +150,7 @@ def test_ask_both_models_sends_gemini_session_endpoint_and_model(monkeypatch):
     assert (
         streamlit_app.GEMINI_ENDPOINT,
         {
-            "question": "?곗감 ?좎껌",
+            "question": "연차 신청",
             "gemini_project": "demo-project",
             "gemini_location": "asia-northeast3",
             "gemini_model": "gemini-2.5-pro",
@@ -136,6 +174,8 @@ def test_iter_model_results_yields_fastest_model_first(monkeypatch):
         streamlit_app._iter_model_results(
             {"question": "연차규정이 어떻게 되나요?"},
             selected_ollama_model="qwen3:4b-instruct",
+            gemini_config={"enabled": True},
+            bedrock_config={"enabled": False},
         )
     )
 

@@ -108,6 +108,27 @@ def test_ask_qwen_uses_requested_supported_ollama_model(monkeypatch):
     assert settings.llm_model == "qwen3:4b-instruct"
 
 
+def test_ask_qwen_accepts_osaka_qwen_model(monkeypatch):
+    server = server_module()
+    settings = make_settings()
+    captured = {}
+
+    monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+
+    def fake_answer_question(question, top_k, **kwargs):
+        captured["settings"] = kwargs["settings"]
+        return {"answer": "Qwen 2.5 answer", "sources": []}
+
+    monkeypatch.setattr(server, "answer_question", fake_answer_question)
+
+    response = server.ask_qwen(
+        server.AskRequest(question="연차 신청은 며칠 전까지 해야 하나요?", llm_model="qwen2.5:7b")
+    )
+
+    assert response.answer == "Qwen 2.5 answer"
+    assert captured["settings"].llm_model == "qwen2.5:7b"
+
+
 def test_ask_qwen_rejects_unsupported_ollama_model(monkeypatch):
     server = server_module()
 
@@ -131,6 +152,7 @@ def test_ask_gemini_requires_project(monkeypatch):
     server = server_module()
 
     monkeypatch.setattr(server.Settings, "from_env", make_settings)
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
     monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
 
@@ -140,12 +162,24 @@ def test_ask_gemini_requires_project(monkeypatch):
     assert getattr(exc_info.value, "status_code", None) == 503
 
 
+def test_ask_gemini_is_disabled_by_default(monkeypatch):
+    server = server_module()
+
+    monkeypatch.delenv("ENABLE_GEMINI_ENDPOINT", raising=False)
+
+    with pytest.raises(Exception) as exc_info:
+        server.ask_gemini(server.AskRequest(question="policy question"))
+
+    assert getattr(exc_info.value, "status_code", None) == 404
+
+
 def test_ask_gemini_uses_pr10_context_builder_pipeline(monkeypatch):
     server = server_module()
     settings = make_settings()
     captured = {}
 
     monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "project-123")
     monkeypatch.setenv("GOOGLE_CLOUD_LOCATION", "asia-northeast3")
     monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")
@@ -187,6 +221,7 @@ def test_ask_gemini_allows_session_model_and_endpoint_overrides(monkeypatch):
     captured = {}
 
     monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
     monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
 
@@ -220,6 +255,7 @@ def test_ask_bedrock_uses_session_model_endpoint_and_existing_env_defaults(monke
     captured = {}
 
     monkeypatch.setattr(server.Settings, "from_env", lambda: settings)
+    monkeypatch.setenv("ENABLE_BEDROCK_ENDPOINT", "true")
 
     def fake_answer_question_with_bedrock(question, top_k, **kwargs):
         captured["question"] = question
@@ -246,10 +282,22 @@ def test_ask_bedrock_uses_session_model_endpoint_and_existing_env_defaults(monke
     assert captured["settings"] is settings
 
 
+def test_ask_bedrock_is_disabled_by_default(monkeypatch):
+    server = server_module()
+
+    monkeypatch.delenv("ENABLE_BEDROCK_ENDPOINT", raising=False)
+
+    with pytest.raises(Exception) as exc_info:
+        server.ask_bedrock(server.AskRequest(question="policy question"))
+
+    assert getattr(exc_info.value, "status_code", None) == 404
+
+
 def test_ask_bedrock_requires_model_id(monkeypatch):
     server = server_module()
 
     monkeypatch.setattr(server.Settings, "from_env", make_settings)
+    monkeypatch.setenv("ENABLE_BEDROCK_ENDPOINT", "true")
     monkeypatch.delenv("BEDROCK_MODEL_ID", raising=False)
 
     def fail_if_called(*args, **kwargs):
@@ -267,6 +315,7 @@ def test_check_gemini_warns_when_credential_file_is_missing(monkeypatch, tmp_pat
     server = server_module()
     missing_path = tmp_path / "missing-sa.json"
 
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "project-123")
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(missing_path))
 
@@ -274,6 +323,19 @@ def test_check_gemini_warns_when_credential_file_is_missing(monkeypatch, tmp_pat
 
     assert status.status == "warning"
     assert "credential" in status.detail.lower()
+
+
+def test_check_gemini_reports_disabled_by_default(monkeypatch):
+    server = server_module()
+
+    monkeypatch.delenv("ENABLE_GEMINI_ENDPOINT", raising=False)
+    monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
+    monkeypatch.delenv("GCP_PROJECT_ID", raising=False)
+
+    status = server._check_gemini()
+
+    assert status.status == "ok"
+    assert "disabled" in status.detail.lower()
 
 
 def test_check_gemini_accepts_authorized_user_adc_credentials(monkeypatch, tmp_path):
@@ -284,6 +346,7 @@ def test_check_gemini_accepts_authorized_user_adc_credentials(monkeypatch, tmp_p
         encoding="utf-8",
     )
 
+    monkeypatch.setenv("ENABLE_GEMINI_ENDPOINT", "true")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "project-123")
     monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", str(credential_path))
 
@@ -291,3 +354,15 @@ def test_check_gemini_accepts_authorized_user_adc_credentials(monkeypatch, tmp_p
 
     assert status.status == "ok"
     assert "gemini-2.5-flash" in status.detail
+
+
+def test_check_bedrock_reports_disabled_by_default(monkeypatch):
+    server = server_module()
+
+    monkeypatch.delenv("ENABLE_BEDROCK_ENDPOINT", raising=False)
+    monkeypatch.delenv("BEDROCK_MODEL_ID", raising=False)
+
+    status = server._check_bedrock()
+
+    assert status.status == "ok"
+    assert "disabled" in status.detail.lower()

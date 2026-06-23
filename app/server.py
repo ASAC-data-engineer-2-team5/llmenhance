@@ -33,7 +33,7 @@ _DEFAULT_GEMINI_LOCATION = "us-central1"
 _DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 _DEFAULT_GEMINI_THINKING_BUDGET = 0
 _DEFAULT_BEDROCK_REGION = "ap-northeast-3"
-_SUPPORTED_OLLAMA_MODELS = ("qwen3:4b-instruct", "exaone3.5:7.8b")
+_SUPPORTED_OLLAMA_MODELS = ("qwen2.5:7b", "qwen3:4b-instruct", "exaone3.5:7.8b")
 _CONVENIENCE_FILTER_FIELDS = (
     "source_path",
     "document_id",
@@ -50,6 +50,21 @@ _CONVENIENCE_FILTER_FIELDS = (
     "category",
     "security_level",
 )
+
+
+def _env_flag(name: str, *, default: bool = False) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _gemini_endpoint_enabled() -> bool:
+    return _env_flag("ENABLE_GEMINI_ENDPOINT", default=False)
+
+
+def _bedrock_endpoint_enabled() -> bool:
+    return _env_flag("ENABLE_BEDROCK_ENDPOINT", default=False)
 
 
 class AskRequest(BaseModel):
@@ -137,8 +152,8 @@ def ask_qwen(req: AskRequest) -> AskResponse:
 
 @app.post("/api/ask/gemini", response_model=AskResponse)
 def ask_gemini(req: AskRequest) -> AskResponse:
-    if not _env_bool("ENABLE_GEMINI_ENDPOINT", True):
-        raise HTTPException(status_code=503, detail="Gemini endpoint is disabled.")
+    if not _gemini_endpoint_enabled():
+        raise HTTPException(status_code=404, detail="Gemini endpoint is disabled.")
 
     settings = Settings.from_env()
     project = _first_text(req.gemini_project, _gemini_project())
@@ -179,8 +194,8 @@ def ask_gemini(req: AskRequest) -> AskResponse:
 
 @app.post("/api/ask/bedrock", response_model=AskResponse)
 def ask_bedrock(req: AskRequest) -> AskResponse:
-    if not _env_bool("ENABLE_BEDROCK_ENDPOINT", True):
-        raise HTTPException(status_code=503, detail="Bedrock endpoint is disabled.")
+    if not _bedrock_endpoint_enabled():
+        raise HTTPException(status_code=404, detail="Bedrock endpoint is disabled.")
 
     settings = Settings.from_env()
     model_id = _first_text(req.bedrock_model_id, os.getenv("BEDROCK_MODEL_ID"))
@@ -326,6 +341,9 @@ def _check_qdrant(qdrant_url: str) -> ServiceStatus:
 
 
 def _check_gemini() -> ServiceStatus:
+    if not _gemini_endpoint_enabled():
+        return ServiceStatus(status="ok", detail="Gemini endpoint disabled.")
+
     project = _gemini_project()
     model = os.getenv("GEMINI_MODEL", _DEFAULT_GEMINI_MODEL)
     if not project:
@@ -393,6 +411,9 @@ def _credential_file_status(credential_path: str) -> ServiceStatus | None:
 
 
 def _check_bedrock() -> ServiceStatus:
+    if not _bedrock_endpoint_enabled():
+        return ServiceStatus(status="ok", detail="Bedrock endpoint disabled.")
+
     region = os.getenv("BEDROCK_REGION", _DEFAULT_BEDROCK_REGION)
     model_id = os.getenv("BEDROCK_MODEL_ID", "").strip()
     if not model_id:

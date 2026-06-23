@@ -1,0 +1,231 @@
+name: Deploy MVP
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Git branch to deploy"
+        required: true
+        default: "main"
+      apply_terraform:
+        description: "Apply Terraform before deploying app code"
+        required: true
+        type: boolean
+        default: false
+      reindex:
+        description: "Rebuild the Qdrant index from datasets/docs"
+        required: true
+        type: boolean
+        default: true
+      run_verify:
+        description: "Run EC2-local deployment verification"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: llmenhance-mvp-deploy
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-3' }}
+  TF_VAR_ollama_base_url: ${{ vars.OLLAMA_BASE_URL }}
+  TF_VAR_llm_model: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
+  TF_VAR_embedding_model: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
+  TF_VAR_enable_gemini_endpoint: ${{ vars.ENABLE_GEMINI_ENDPOINT || 'false' }}
+  TF_VAR_enable_gemini_panel: ${{ vars.ENABLE_GEMINI_PANEL || 'false' }}
+  TF_VAR_google_application_credentials: ${{ vars.GOOGLE_APPLICATION_CREDENTIALS || '' }}
+  TF_VAR_google_cloud_project: ${{ vars.GOOGLE_CLOUD_PROJECT || '' }}
+  TF_VAR_google_cloud_location: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
+  TF_VAR_gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+  TF_VAR_gemini_thinking_budget: ${{ vars.GEMINI_THINKING_BUDGET || '0' }}
+  TF_VAR_enable_bedrock_endpoint: ${{ vars.ENABLE_BEDROCK_ENDPOINT || 'false' }}
+  TF_VAR_enable_bedrock_panel: ${{ vars.ENABLE_BEDROCK_PANEL || 'false' }}
+  TF_VAR_bedrock_region: ${{ vars.BEDROCK_REGION || 'ap-northeast-3' }}
+  TF_VAR_bedrock_model_id: ${{ vars.BEDROCK_MODEL_ID || '' }}
+  TF_VAR_bedrock_model_label: ${{ vars.BEDROCK_MODEL_LABEL || '' }}
+  TF_VAR_bedrock_max_output_tokens: ${{ vars.BEDROCK_MAX_OUTPUT_TOKENS || '512' }}
+  TF_VAR_streamlit_allowed_cidr_blocks: ${{ vars.STREAMLIT_ALLOWED_CIDR_BLOCKS || '[]' }}
+  TF_VAR_repo_ref: ${{ inputs.git_ref }}
+
+jobs:
+  deploy:
+    name: deploy MVP app EC2
+    runs-on: ubuntu-latest
+    environment: mvp
+
+    steps:
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+          if [ -z "${{ vars.AWS_ROLE_TO_ASSUME }}" ]; then
+            echo "Repository variable AWS_ROLE_TO_ASSUME is required." >&2
+            exit 1
+          fi
+          if [ -z "${{ vars.TF_STATE_BUCKET }}" ]; then
+            echo "Repository variable TF_STATE_BUCKET is required." >&2
+            exit 1
+          fi
+          if [ -z "${{ vars.OLLAMA_BASE_URL }}" ]; then
+            echo "Repository variable OLLAMA_BASE_URL is required." >&2
+            exit 1
+          fi
+          if ! [[ "${{ inputs.git_ref }}" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "git_ref contains unsupported characters." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure Terraform backend
+        working-directory: infra/terraform/envs/mvp
+        run: |
+          cat > backend.hcl <<EOF
+          bucket = "${{ vars.TF_STATE_BUCKET }}"
+          region = "${{ env.AWS_REGION }}"
+          EOF
+
+      - name: Terraform init MVP
+        run: terraform -chdir=infra/terraform/envs/mvp init -backend-config=backend.hcl
+
+      - name: Terraform validate MVP
+        run: terraform -chdir=infra/terraform/envs/mvp validate
+
+      - name: Terraform apply MVP
+        if: ${{ inputs.apply_terraform }}
+        run: terraform -chdir=infra/terraform/envs/mvp apply -auto-approve -input=false
+
+      - name: Resolve app instance id
+        id: app
+        run: |
+          set -euo pipefail
+          app_instance_id="$(terraform -chdir=infra/terraform/envs/mvp output -raw app_instance_id)"
+          echo "instance_id=${app_instance_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy app through SSM
+        env:
+          APP_INSTANCE_ID: ${{ steps.app.outputs.instance_id }}
+          DEPLOY_REF: ${{ inputs.git_ref }}
+          OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
+          EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
+          ENABLE_GEMINI_ENDPOINT: ${{ vars.ENABLE_GEMINI_ENDPOINT || 'false' }}
+          ENABLE_GEMINI_PANEL: ${{ vars.ENABLE_GEMINI_PANEL || 'false' }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ vars.GOOGLE_APPLICATION_CREDENTIALS || '' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT || '' }}
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_THINKING_BUDGET: ${{ vars.GEMINI_THINKING_BUDGET || '0' }}
+          ENABLE_BEDROCK_ENDPOINT: ${{ vars.ENABLE_BEDROCK_ENDPOINT || 'false' }}
+          ENABLE_BEDROCK_PANEL: ${{ vars.ENABLE_BEDROCK_PANEL || 'false' }}
+          BEDROCK_REGION: ${{ vars.BEDROCK_REGION || 'ap-northeast-3' }}
+          BEDROCK_MODEL_ID: ${{ vars.BEDROCK_MODEL_ID || '' }}
+          BEDROCK_MODEL_LABEL: ${{ vars.BEDROCK_MODEL_LABEL || '' }}
+          BEDROCK_MAX_OUTPUT_TOKENS: ${{ vars.BEDROCK_MAX_OUTPUT_TOKENS || '512' }}
+          REINDEX: ${{ inputs.reindex }}
+          RUN_VERIFY: ${{ inputs.run_verify }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+
+          commands = [
+              "set -eux",
+              "cd /opt/llmenhance/app",
+              "git fetch --all --prune",
+              f"git checkout {os.environ['DEPLOY_REF']}",
+              f"git pull --ff-only origin {os.environ['DEPLOY_REF']}",
+              "\n".join([
+                  "cat > .env <<'ENVEOF'",
+                  "TEAM_ENV_PROFILE=aws-app-ec2",
+                  f"OLLAMA_BASE_URL={os.environ['OLLAMA_BASE_URL']}",
+                  f"LLM_MODEL={os.environ['LLM_MODEL']}",
+                  f"EMBEDDING_MODEL={os.environ['EMBEDDING_MODEL']}",
+                  "",
+                  "QDRANT_URL=http://qdrant:6333",
+                  "QDRANT_COLLECTION=llmenhance_chunks",
+                  "",
+                  "RETRIEVAL_TOP_K=5",
+                  "TEMPERATURE=0.2",
+                  "NUM_CTX=4096",
+                  "NUM_PREDICT=512",
+                  "",
+                  f"ENABLE_GEMINI_ENDPOINT={os.environ['ENABLE_GEMINI_ENDPOINT']}",
+                  f"ENABLE_GEMINI_PANEL={os.environ['ENABLE_GEMINI_PANEL']}",
+                  f"GOOGLE_APPLICATION_CREDENTIALS={os.environ['GOOGLE_APPLICATION_CREDENTIALS']}",
+                  f"GOOGLE_CLOUD_PROJECT={os.environ['GOOGLE_CLOUD_PROJECT']}",
+                  f"GOOGLE_CLOUD_LOCATION={os.environ['GOOGLE_CLOUD_LOCATION']}",
+                  f"GEMINI_MODEL={os.environ['GEMINI_MODEL']}",
+                  f"GEMINI_THINKING_BUDGET={os.environ['GEMINI_THINKING_BUDGET']}",
+                  "",
+                  f"ENABLE_BEDROCK_ENDPOINT={os.environ['ENABLE_BEDROCK_ENDPOINT']}",
+                  f"ENABLE_BEDROCK_PANEL={os.environ['ENABLE_BEDROCK_PANEL']}",
+                  f"BEDROCK_REGION={os.environ['BEDROCK_REGION']}",
+                  f"BEDROCK_MODEL_ID={os.environ['BEDROCK_MODEL_ID']}",
+                  f"BEDROCK_MODEL_LABEL={os.environ['BEDROCK_MODEL_LABEL']}",
+                  f"BEDROCK_MAX_OUTPUT_TOKENS={os.environ['BEDROCK_MAX_OUTPUT_TOKENS']}",
+                  "ENVEOF",
+              ]),
+              "docker compose -f docker-compose.aws.yml up -d --build",
+          ]
+
+          if os.environ["REINDEX"] == "true":
+              commands.append(
+                  "docker compose -f docker-compose.aws.yml run --rm rag-api "
+                  "python scripts/ingest_md.py datasets/docs --reset"
+              )
+
+          if os.environ["RUN_VERIFY"] == "true":
+              commands.append("bash scripts/aws_verify.sh")
+
+          with open("/tmp/llmenhance-ssm-deploy.json", "w", encoding="utf-8") as handle:
+              json.dump({"commands": commands}, handle)
+          PY
+
+          command_id="$(
+            aws ssm send-command \
+              --region "${AWS_REGION}" \
+              --instance-ids "${APP_INSTANCE_ID}" \
+              --document-name AWS-RunShellScript \
+              --comment "Deploy llmenhance ${DEPLOY_REF}" \
+              --parameters file:///tmp/llmenhance-ssm-deploy.json \
+              --query 'Command.CommandId' \
+              --output text
+          )"
+
+          set +e
+          aws ssm wait command-executed \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${APP_INSTANCE_ID}"
+          wait_status=$?
+          set -e
+
+          aws ssm get-command-invocation \
+            --region "${AWS_REGION}" \
+            --command-id "${command_id}" \
+            --instance-id "${APP_INSTANCE_ID}" \
+            --query '{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}' \
+            --output json
+
+          exit "${wait_status}"

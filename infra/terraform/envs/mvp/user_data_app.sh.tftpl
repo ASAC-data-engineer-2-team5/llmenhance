@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y ca-certificates curl git docker.io docker-compose-v2 python3
+systemctl enable --now docker
+snap install amazon-ssm-agent --classic || true
+systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || systemctl enable --now amazon-ssm-agent || true
+
+mkdir -p /opt/llmenhance/qdrant
+mkdir -p /opt/llmenhance/storage
+mkdir -p /opt/llmenhance/app
+
+if [ ! -d /opt/llmenhance/app/.git ]; then
+  rm -rf /opt/llmenhance/app
+  git clone "${repo_url}" /opt/llmenhance/app
+fi
+
+cd /opt/llmenhance/app
+git fetch --all --prune
+git checkout "${repo_ref}"
+
+cat > /opt/llmenhance/app/.env <<ENVEOF
+TEAM_ENV_PROFILE=aws-app-ec2
+OLLAMA_BASE_URL=${ollama_base_url}
+LLM_MODEL=${llm_model}
+EMBEDDING_MODEL=${embedding_model}
+
+QDRANT_URL=http://qdrant:6333
+QDRANT_COLLECTION=llmenhance_chunks
+
+RETRIEVAL_TOP_K=5
+TEMPERATURE=0.2
+NUM_CTX=4096
+NUM_PREDICT=512
+
+ENABLE_GEMINI_ENDPOINT=${cloud_env.enable_gemini_endpoint}
+ENABLE_GEMINI_PANEL=${cloud_env.enable_gemini_panel}
+GOOGLE_APPLICATION_CREDENTIALS=${cloud_env.google_application_credentials}
+GOOGLE_CLOUD_PROJECT=${cloud_env.google_cloud_project}
+GOOGLE_CLOUD_LOCATION=${cloud_env.google_cloud_location}
+GEMINI_MODEL=${cloud_env.gemini_model}
+GEMINI_THINKING_BUDGET=${cloud_env.gemini_thinking_budget}
+
+ENABLE_BEDROCK_ENDPOINT=${cloud_env.enable_bedrock_endpoint}
+ENABLE_BEDROCK_PANEL=${cloud_env.enable_bedrock_panel}
+BEDROCK_REGION=${cloud_env.bedrock_region}
+BEDROCK_MODEL_ID=${cloud_env.bedrock_model_id}
+BEDROCK_MODEL_LABEL=${cloud_env.bedrock_model_label}
+BEDROCK_MAX_OUTPUT_TOKENS=${cloud_env.bedrock_max_output_tokens}
+ENVEOF
+
+docker compose -f docker-compose.aws.yml up -d --build

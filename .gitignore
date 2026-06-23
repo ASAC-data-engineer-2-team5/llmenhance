@@ -15,6 +15,7 @@ Thumbs.db
 !.env.example
 !.env.shared-ec2.example
 !.env.local-ollama.example
+!.env.aws-ec2.example
 
 # Local RAG state
 storage/
@@ -62,6 +63,14 @@ target/
 # Local worktrees
 .worktrees/
 worktrees/
+
+# Terraform local state and local values
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/terraform.tfvars
+infra/terraform/**/backend.hcl
+infra/terraform/**/tfplan
 
 # Local brainstorming sessions
 .superpowers/

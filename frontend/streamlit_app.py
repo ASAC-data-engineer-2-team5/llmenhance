@@ -14,8 +14,11 @@ BEDROCK_ENDPOINT = f"{API_BASE}/api/ask/bedrock"
 HEALTH_ENDPOINT = f"{API_BASE}/health/services"
 ASK_TIMEOUT_SECONDS = 180.0
 HEALTH_TIMEOUT_SECONDS = 6.0
+DEFAULT_OLLAMA_MODEL = os.getenv("LLM_MODEL", "qwen3:4b-instruct")
 OLLAMA_MODEL_OPTIONS = {
-    "Qwen": "qwen3:4b-instruct",
+    "Configured": DEFAULT_OLLAMA_MODEL,
+    "Qwen 2.5 7B": "qwen2.5:7b",
+    "Qwen 3 4B": "qwen3:4b-instruct",
     "EXAONE": "exaone3.5:7.8b",
 }
 GEMINI_MODEL_OPTIONS = {
@@ -31,7 +34,7 @@ DEFAULT_GEMINI_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 DEFAULT_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 DEFAULT_GEMINI_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID", "")
 DEFAULT_BEDROCK_REGION = os.getenv("BEDROCK_REGION", "ap-northeast-3")
-DEFAULT_BEDROCK_MODEL = os.getenv("BEDROCK_MODEL_ID", "jp.anthropic.claude-sonnet-4-6")
+DEFAULT_BEDROCK_MODEL = os.getenv("BEDROCK_MODEL_ID", "")
 
 STATUS_LABELS = {
     "ok": "정상",
@@ -39,6 +42,14 @@ STATUS_LABELS = {
     "error": "오류",
     "unknown": "미확인",
 }
+
+
+def _gemini_enabled() -> bool:
+    return _env_bool("ENABLE_GEMINI_PANEL", False)
+
+
+def _bedrock_enabled() -> bool:
+    return _env_bool("ENABLE_BEDROCK_PANEL", False)
 
 
 def main() -> None:
@@ -81,12 +92,16 @@ def _render_sidebar() -> None:
             st.caption("새로고침을 눌러 서비스 상태를 확인하세요.")
             return
 
+        cloud_configs = _cloud_session_configs()
+
         st.divider()
         _render_status_line("API 서버", status.get("api", {}))
         _render_status_line("Ollama / Qwen", status.get("ollama", {}))
         _render_status_line("Qdrant", status.get("qdrant", {}))
-        _render_status_line("Vertex Gemini", status.get("gemini", {}))
-        _render_status_line("AWS Bedrock", status.get("bedrock", {}))
+        if cloud_configs["gemini"]["enabled"]:
+            _render_status_line("Vertex Gemini", status.get("gemini", {}))
+        if cloud_configs["bedrock"]["enabled"]:
+            _render_status_line("AWS Bedrock", status.get("bedrock", {}))
 
         st.divider()
         overall = _overall_status(status)
@@ -102,47 +117,48 @@ def _render_sidebar() -> None:
 
 
 def _render_main() -> None:
-    st.title("사내 규정 챗봇 모델 비교")
-
     status = st.session_state.service_status
     cloud_configs = _cloud_session_configs()
-    col_qwen, col_gemini, col_bedrock = st.columns(3)
+    active_model_keys = _active_model_keys(cloud_configs)
 
-    with col_qwen:
+    st.title("사내 규정 챗봇 모델 비교" if len(active_model_keys) > 1 else "사내 규정 챗봇")
+
+    columns = st.columns(len(active_model_keys))
+    column_by_key = dict(zip(active_model_keys, columns, strict=True))
+
+    with column_by_key["qwen"]:
         _render_panel_header("EC2 Ollama", status, "ollama")
         selected_ollama_model = _render_ollama_model_selector()
         st.caption("온프레미스 RAG 답변 생성")
         st.divider()
         _render_chat_history(st.session_state.qwen_messages)
 
-    with col_gemini:
-        _render_panel_header("Vertex Gemini", status, "gemini")
-        st.caption("클라우드 API RAG 답변 생성")
-        st.divider()
-        _render_chat_history(st.session_state.gemini_messages)
+    if "gemini" in column_by_key:
+        with column_by_key["gemini"]:
+            _render_panel_header("Vertex Gemini", status, "gemini")
+            st.caption("클라우드 API RAG 답변 생성")
+            st.divider()
+            _render_chat_history(st.session_state.gemini_messages)
 
-    with col_bedrock:
-        _render_panel_header("AWS Bedrock", status, "bedrock")
-        st.caption("AWS Bedrock RAG")
-        st.divider()
-        _render_chat_history(st.session_state.bedrock_messages)
+    if "bedrock" in column_by_key:
+        with column_by_key["bedrock"]:
+            _render_panel_header("AWS Bedrock", status, "bedrock")
+            st.caption("AWS Bedrock RAG")
+            st.divider()
+            _render_chat_history(st.session_state.bedrock_messages)
 
     question = st.chat_input("사내 규정에 대해 질문하세요.")
     if not question:
         return
 
-    active_model_keys = _active_model_keys(cloud_configs)
     _append_user_message(question, active_model_keys)
     payload = {"question": question}
     live_containers = {
-        "qwen": _render_live_user_message(col_qwen, question),
+        model_key: _render_live_user_message(column_by_key[model_key], question)
+        for model_key in active_model_keys
     }
-    if cloud_configs["gemini"]["enabled"]:
-        live_containers["gemini"] = _render_live_user_message(col_gemini, question)
-    if cloud_configs["bedrock"]["enabled"]:
-        live_containers["bedrock"] = _render_live_user_message(col_bedrock, question)
 
-    with st.spinner("두 모델에서 동시에 답변을 생성하는 중..."):
+    with st.spinner("모델에서 답변을 생성하는 중..."):
         for model_key, result in _iter_model_results(
             payload,
             selected_ollama_model=selected_ollama_model,
@@ -167,15 +183,21 @@ def _fetch_service_status() -> dict[str, Any]:
     try:
         response = httpx.get(HEALTH_ENDPOINT, timeout=HEALTH_TIMEOUT_SECONDS)
         response.raise_for_status()
-        return response.json()
+        status = response.json()
     except Exception as exc:
-        return {
+        status = {
             "api": {"status": "error", "detail": f"API 서버 연결 실패: {exc}"},
             "ollama": {"status": "unknown", "detail": ""},
             "qdrant": {"status": "unknown", "detail": ""},
             "gemini": {"status": "unknown", "detail": ""},
             "bedrock": {"status": "unknown", "detail": ""},
         }
+
+    if not _session_or_env_enabled("gemini"):
+        status["gemini"] = {"status": "ok", "detail": "Gemini panel disabled."}
+    if not _session_or_env_enabled("bedrock"):
+        status["bedrock"] = {"status": "ok", "detail": "Bedrock panel disabled."}
+    return status
 
 
 def _render_ollama_model_selector() -> str:
@@ -195,7 +217,7 @@ def _render_cloud_session_controls() -> None:
 
     gemini_enabled = st.toggle(
         "Gemini",
-        value=_env_bool("ENABLE_GEMINI_PANEL", True),
+        value=_gemini_enabled(),
         key="gemini_enabled",
     )
     if gemini_enabled:
@@ -216,7 +238,7 @@ def _render_cloud_session_controls() -> None:
 
     bedrock_enabled = st.toggle(
         "Bedrock",
-        value=_env_bool("ENABLE_BEDROCK_PANEL", bool(DEFAULT_BEDROCK_MODEL)),
+        value=_bedrock_enabled(),
         key="bedrock_enabled",
     )
     if bedrock_enabled:
@@ -252,9 +274,7 @@ def _render_model_text_input(
 def _cloud_session_configs() -> dict[str, dict[str, Any]]:
     return {
         "gemini": {
-            "enabled": bool(
-                st.session_state.get("gemini_enabled", _env_bool("ENABLE_GEMINI_PANEL", True))
-            ),
+            "enabled": _session_or_env_enabled("gemini"),
             "project": st.session_state.get("gemini_project", DEFAULT_GEMINI_PROJECT),
             "location": st.session_state.get("gemini_location", DEFAULT_GEMINI_LOCATION),
             "model": st.session_state.get("gemini_model", DEFAULT_GEMINI_MODEL),
@@ -263,16 +283,19 @@ def _cloud_session_configs() -> dict[str, dict[str, Any]]:
             ),
         },
         "bedrock": {
-            "enabled": bool(
-                st.session_state.get(
-                    "bedrock_enabled",
-                    _env_bool("ENABLE_BEDROCK_PANEL", bool(DEFAULT_BEDROCK_MODEL)),
-                )
-            ),
+            "enabled": _session_or_env_enabled("bedrock"),
             "region": st.session_state.get("bedrock_region", DEFAULT_BEDROCK_REGION),
             "model_id": st.session_state.get("bedrock_model_id", DEFAULT_BEDROCK_MODEL),
         },
     }
+
+
+def _session_or_env_enabled(provider: str) -> bool:
+    if provider == "gemini":
+        return bool(st.session_state.get("gemini_enabled", _gemini_enabled()))
+    if provider == "bedrock":
+        return bool(st.session_state.get("bedrock_enabled", _bedrock_enabled()))
+    raise ValueError(f"Unsupported cloud provider {provider!r}")
 
 
 def _active_model_keys(cloud_configs: dict[str, dict[str, Any]]) -> list[str]:
@@ -335,7 +358,7 @@ def _model_requests(
         ("qwen", QWEN_ENDPOINT, {**payload, "llm_model": selected_ollama_model}),
     ]
 
-    if _provider_enabled(gemini_config, default=True):
+    if _provider_enabled(gemini_config, default=False):
         requests.append(("gemini", GEMINI_ENDPOINT, _gemini_payload(payload, gemini_config or {})))
 
     if _provider_enabled(bedrock_config, default=False):
@@ -417,7 +440,7 @@ def _error_detail(response: httpx.Response) -> str:
 
 def _append_user_message(question: str, model_keys: list[str] | None = None) -> None:
     user_message = {"role": "user", "content": question}
-    for model_key in model_keys or ["qwen", "gemini"]:
+    for model_key in model_keys or ["qwen"]:
         st.session_state[f"{model_key}_messages"].append(user_message)
 
 
