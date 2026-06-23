@@ -25,8 +25,8 @@ git checkout "${repo_ref}"
 cat > /opt/llmenhance/app/.env <<ENVEOF
 TEAM_ENV_PROFILE=aws-app-ec2
 OLLAMA_BASE_URL=${ollama_base_url}
-LLM_MODEL=qwen3:4b-instruct
-EMBEDDING_MODEL=bge-m3
+LLM_MODEL=${llm_model}
+EMBEDDING_MODEL=${embedding_model}
 
 QDRANT_URL=http://qdrant:6333
 QDRANT_COLLECTION=llmenhance_chunks

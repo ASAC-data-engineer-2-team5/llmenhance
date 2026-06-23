@@ -1,0 +1,2 @@
+.gitattributes text eol=lf
+infra/terraform/envs/mvp/user_data_app.sh.tftpl text eol=lf

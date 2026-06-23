@@ -1,10 +1,17 @@
 aws_region     = "ap-northeast-3"
 project_name   = "llmenhance"
-environment    = "mvp"
+environment    = "mvp-osaka"
 instance_type  = "t3.large"
 root_volume_gb = 100
 repo_url       = "https://github.com/ASAC-data-engineer-2-team5/llmenhance.git"
 repo_ref       = "main"
+
+# Existing Osaka model server. Prefer the private VPC address when the app EC2
+# and model EC2 are in the same VPC.
+ollama_base_url                = "http://172.31.24.212:11434"
+llm_model                      = "qwen2.5:7b"
+embedding_model                = "bge-m3"
+model_server_security_group_id = "sg-0f6c907562392c866"
 
 # Temporary MVP demo exposure. Prefer a trusted IP range such as
 # ["203.0.113.10/32"] instead of the whole internet.

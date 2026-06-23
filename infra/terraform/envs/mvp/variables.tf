@@ -10,7 +10,7 @@ variable "project_name" {
 
 variable "environment" {
   type    = string
-  default = "mvp"
+  default = "mvp-osaka"
 }
 
 variable "vpc_id" {
@@ -49,6 +49,23 @@ variable "streamlit_allowed_cidr_blocks" {
   }
 }
 
+variable "model_server_security_group_id" {
+  type        = string
+  default     = ""
+  description = "Existing Ollama/Qwen model server security group. When set, Terraform allows app EC2 ingress to Ollama."
+}
+
+variable "model_server_ollama_port" {
+  type        = number
+  default     = 11434
+  description = "Ollama TCP port on the existing model server."
+
+  validation {
+    condition     = var.model_server_ollama_port > 0 && var.model_server_ollama_port <= 65535
+    error_message = "model_server_ollama_port must be a valid TCP port."
+  }
+}
+
 variable "repo_url" {
   type    = string
   default = "https://github.com/ASAC-data-engineer-2-team5/llmenhance.git"
@@ -57,6 +74,28 @@ variable "repo_url" {
 variable "repo_ref" {
   type    = string
   default = "main"
+}
+
+variable "llm_model" {
+  type        = string
+  default     = "qwen2.5:7b"
+  description = "Ollama chat model name available on the existing model server."
+
+  validation {
+    condition     = length(trimspace(var.llm_model)) > 0
+    error_message = "llm_model must be a non-empty Ollama model name."
+  }
+}
+
+variable "embedding_model" {
+  type        = string
+  default     = "bge-m3"
+  description = "Ollama embedding model name available on the existing model server."
+
+  validation {
+    condition     = length(trimspace(var.embedding_model)) > 0
+    error_message = "embedding_model must be a non-empty Ollama model name."
+  }
 }
 
 variable "ollama_base_url" {

@@ -102,6 +102,17 @@ resource "aws_vpc_security_group_ingress_rule" "streamlit" {
   cidr_ipv4         = each.value
 }
 
+resource "aws_vpc_security_group_ingress_rule" "model_ollama_from_app" {
+  count = var.model_server_security_group_id == "" ? 0 : 1
+
+  security_group_id            = var.model_server_security_group_id
+  referenced_security_group_id = aws_security_group.app.id
+  description                  = "Ollama from llmenhance app EC2"
+  ip_protocol                  = "tcp"
+  from_port                    = var.model_server_ollama_port
+  to_port                      = var.model_server_ollama_port
+}
+
 resource "aws_instance" "app" {
   ami                         = local.ami_id
   instance_type               = var.instance_type
@@ -114,6 +125,8 @@ resource "aws_instance" "app" {
     repo_url        = var.repo_url
     repo_ref        = var.repo_ref
     ollama_base_url = var.ollama_base_url
+    llm_model       = var.llm_model
+    embedding_model = var.embedding_model
   })
   user_data_replace_on_change = true
 

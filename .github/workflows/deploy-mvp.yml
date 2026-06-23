@@ -36,6 +36,8 @@ env:
   TF_INPUT: "false"
   AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-3' }}
   TF_VAR_ollama_base_url: ${{ vars.OLLAMA_BASE_URL }}
+  TF_VAR_llm_model: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
+  TF_VAR_embedding_model: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
   TF_VAR_streamlit_allowed_cidr_blocks: ${{ vars.STREAMLIT_ALLOWED_CIDR_BLOCKS || '[]' }}
   TF_VAR_repo_ref: ${{ inputs.git_ref }}
 
@@ -109,6 +111,9 @@ jobs:
         env:
           APP_INSTANCE_ID: ${{ steps.app.outputs.instance_id }}
           DEPLOY_REF: ${{ inputs.git_ref }}
+          OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
+          EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
           REINDEX: ${{ inputs.reindex }}
           RUN_VERIFY: ${{ inputs.run_verify }}
         run: |
@@ -124,6 +129,25 @@ jobs:
               "git fetch --all --prune",
               f"git checkout {os.environ['DEPLOY_REF']}",
               f"git pull --ff-only origin {os.environ['DEPLOY_REF']}",
+              "\n".join([
+                  "cat > .env <<'ENVEOF'",
+                  "TEAM_ENV_PROFILE=aws-app-ec2",
+                  f"OLLAMA_BASE_URL={os.environ['OLLAMA_BASE_URL']}",
+                  f"LLM_MODEL={os.environ['LLM_MODEL']}",
+                  f"EMBEDDING_MODEL={os.environ['EMBEDDING_MODEL']}",
+                  "",
+                  "QDRANT_URL=http://qdrant:6333",
+                  "QDRANT_COLLECTION=llmenhance_chunks",
+                  "",
+                  "RETRIEVAL_TOP_K=5",
+                  "TEMPERATURE=0.2",
+                  "NUM_CTX=4096",
+                  "NUM_PREDICT=512",
+                  "",
+                  "ENABLE_GEMINI_ENDPOINT=false",
+                  "ENABLE_GEMINI_PANEL=false",
+                  "ENVEOF",
+              ]),
               "docker compose -f docker-compose.aws.yml up -d --build",
           ]
 

@@ -78,7 +78,9 @@ It also runs a remote-state Terraform plan when these repository variables are c
 AWS_REGION=ap-northeast-3
 AWS_ROLE_TO_ASSUME=arn:aws:iam::<account-id>:role/<github-actions-role>
 TF_STATE_BUCKET=<terraform-state-bucket>
-OLLAMA_BASE_URL=http://<model-server-ip>:11434
+OLLAMA_BASE_URL=http://<model-server-private-ip>:11434
+LLM_MODEL=qwen2.5:7b
+EMBEDDING_MODEL=bge-m3
 STREAMLIT_ALLOWED_CIDR_BLOCKS=["0.0.0.0/0"]
 ```
 

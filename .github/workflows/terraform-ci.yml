@@ -69,6 +69,8 @@ jobs:
 
     env:
       TF_VAR_ollama_base_url: ${{ vars.OLLAMA_BASE_URL }}
+      TF_VAR_llm_model: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
+      TF_VAR_embedding_model: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
       TF_VAR_streamlit_allowed_cidr_blocks: ${{ vars.STREAMLIT_ALLOWED_CIDR_BLOCKS || '[]' }}
 
     steps:
