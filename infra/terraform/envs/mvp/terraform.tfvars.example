@@ -13,6 +13,23 @@ llm_model                      = "qwen2.5:7b"
 embedding_model                = "bge-m3"
 model_server_security_group_id = "sg-0f6c907562392c866"
 
+# Optional cloud comparison providers. Keep disabled for the employee-facing
+# MVP runtime; enable only for controlled internal benchmark sessions.
+enable_gemini_endpoint        = false
+enable_gemini_panel           = false
+google_application_credentials = ""
+google_cloud_project          = ""
+google_cloud_location         = "us-central1"
+gemini_model                  = "gemini-2.5-flash"
+gemini_thinking_budget        = 0
+
+enable_bedrock_endpoint       = false
+enable_bedrock_panel          = false
+bedrock_region                = "ap-northeast-3"
+bedrock_model_id              = ""
+bedrock_model_label           = ""
+bedrock_max_output_tokens     = 512
+
 # Temporary MVP demo exposure. Prefer a trusted IP range such as
 # ["203.0.113.10/32"] instead of the whole internet.
 streamlit_allowed_cidr_blocks = ["0.0.0.0/0"]

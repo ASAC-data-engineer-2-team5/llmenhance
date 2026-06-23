@@ -38,6 +38,19 @@ env:
   TF_VAR_ollama_base_url: ${{ vars.OLLAMA_BASE_URL }}
   TF_VAR_llm_model: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
   TF_VAR_embedding_model: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
+  TF_VAR_enable_gemini_endpoint: ${{ vars.ENABLE_GEMINI_ENDPOINT || 'false' }}
+  TF_VAR_enable_gemini_panel: ${{ vars.ENABLE_GEMINI_PANEL || 'false' }}
+  TF_VAR_google_application_credentials: ${{ vars.GOOGLE_APPLICATION_CREDENTIALS || '' }}
+  TF_VAR_google_cloud_project: ${{ vars.GOOGLE_CLOUD_PROJECT || '' }}
+  TF_VAR_google_cloud_location: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
+  TF_VAR_gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+  TF_VAR_gemini_thinking_budget: ${{ vars.GEMINI_THINKING_BUDGET || '0' }}
+  TF_VAR_enable_bedrock_endpoint: ${{ vars.ENABLE_BEDROCK_ENDPOINT || 'false' }}
+  TF_VAR_enable_bedrock_panel: ${{ vars.ENABLE_BEDROCK_PANEL || 'false' }}
+  TF_VAR_bedrock_region: ${{ vars.BEDROCK_REGION || 'ap-northeast-3' }}
+  TF_VAR_bedrock_model_id: ${{ vars.BEDROCK_MODEL_ID || '' }}
+  TF_VAR_bedrock_model_label: ${{ vars.BEDROCK_MODEL_LABEL || '' }}
+  TF_VAR_bedrock_max_output_tokens: ${{ vars.BEDROCK_MAX_OUTPUT_TOKENS || '512' }}
   TF_VAR_streamlit_allowed_cidr_blocks: ${{ vars.STREAMLIT_ALLOWED_CIDR_BLOCKS || '[]' }}
   TF_VAR_repo_ref: ${{ inputs.git_ref }}
 
@@ -114,6 +127,19 @@ jobs:
           OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
           LLM_MODEL: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
           EMBEDDING_MODEL: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
+          ENABLE_GEMINI_ENDPOINT: ${{ vars.ENABLE_GEMINI_ENDPOINT || 'false' }}
+          ENABLE_GEMINI_PANEL: ${{ vars.ENABLE_GEMINI_PANEL || 'false' }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ vars.GOOGLE_APPLICATION_CREDENTIALS || '' }}
+          GOOGLE_CLOUD_PROJECT: ${{ vars.GOOGLE_CLOUD_PROJECT || '' }}
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_THINKING_BUDGET: ${{ vars.GEMINI_THINKING_BUDGET || '0' }}
+          ENABLE_BEDROCK_ENDPOINT: ${{ vars.ENABLE_BEDROCK_ENDPOINT || 'false' }}
+          ENABLE_BEDROCK_PANEL: ${{ vars.ENABLE_BEDROCK_PANEL || 'false' }}
+          BEDROCK_REGION: ${{ vars.BEDROCK_REGION || 'ap-northeast-3' }}
+          BEDROCK_MODEL_ID: ${{ vars.BEDROCK_MODEL_ID || '' }}
+          BEDROCK_MODEL_LABEL: ${{ vars.BEDROCK_MODEL_LABEL || '' }}
+          BEDROCK_MAX_OUTPUT_TOKENS: ${{ vars.BEDROCK_MAX_OUTPUT_TOKENS || '512' }}
           REINDEX: ${{ inputs.reindex }}
           RUN_VERIFY: ${{ inputs.run_verify }}
         run: |
@@ -144,8 +170,20 @@ jobs:
                   "NUM_CTX=4096",
                   "NUM_PREDICT=512",
                   "",
-                  "ENABLE_GEMINI_ENDPOINT=false",
-                  "ENABLE_GEMINI_PANEL=false",
+                  f"ENABLE_GEMINI_ENDPOINT={os.environ['ENABLE_GEMINI_ENDPOINT']}",
+                  f"ENABLE_GEMINI_PANEL={os.environ['ENABLE_GEMINI_PANEL']}",
+                  f"GOOGLE_APPLICATION_CREDENTIALS={os.environ['GOOGLE_APPLICATION_CREDENTIALS']}",
+                  f"GOOGLE_CLOUD_PROJECT={os.environ['GOOGLE_CLOUD_PROJECT']}",
+                  f"GOOGLE_CLOUD_LOCATION={os.environ['GOOGLE_CLOUD_LOCATION']}",
+                  f"GEMINI_MODEL={os.environ['GEMINI_MODEL']}",
+                  f"GEMINI_THINKING_BUDGET={os.environ['GEMINI_THINKING_BUDGET']}",
+                  "",
+                  f"ENABLE_BEDROCK_ENDPOINT={os.environ['ENABLE_BEDROCK_ENDPOINT']}",
+                  f"ENABLE_BEDROCK_PANEL={os.environ['ENABLE_BEDROCK_PANEL']}",
+                  f"BEDROCK_REGION={os.environ['BEDROCK_REGION']}",
+                  f"BEDROCK_MODEL_ID={os.environ['BEDROCK_MODEL_ID']}",
+                  f"BEDROCK_MODEL_LABEL={os.environ['BEDROCK_MODEL_LABEL']}",
+                  f"BEDROCK_MAX_OUTPUT_TOKENS={os.environ['BEDROCK_MAX_OUTPUT_TOKENS']}",
                   "ENVEOF",
               ]),
               "docker compose -f docker-compose.aws.yml up -d --build",
@@ -158,7 +196,7 @@ jobs:
               )
 
           if os.environ["RUN_VERIFY"] == "true":
-              commands.append("./scripts/aws_verify.sh")
+              commands.append("bash scripts/aws_verify.sh")
 
           with open("/tmp/llmenhance-ssm-deploy.json", "w", encoding="utf-8") as handle:
               json.dump({"commands": commands}, handle)

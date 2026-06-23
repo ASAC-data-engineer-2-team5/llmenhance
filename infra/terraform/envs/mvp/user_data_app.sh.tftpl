@@ -36,8 +36,20 @@ TEMPERATURE=0.2
 NUM_CTX=4096
 NUM_PREDICT=512
 
-ENABLE_GEMINI_ENDPOINT=false
-ENABLE_GEMINI_PANEL=false
+ENABLE_GEMINI_ENDPOINT=${cloud_env.enable_gemini_endpoint}
+ENABLE_GEMINI_PANEL=${cloud_env.enable_gemini_panel}
+GOOGLE_APPLICATION_CREDENTIALS=${cloud_env.google_application_credentials}
+GOOGLE_CLOUD_PROJECT=${cloud_env.google_cloud_project}
+GOOGLE_CLOUD_LOCATION=${cloud_env.google_cloud_location}
+GEMINI_MODEL=${cloud_env.gemini_model}
+GEMINI_THINKING_BUDGET=${cloud_env.gemini_thinking_budget}
+
+ENABLE_BEDROCK_ENDPOINT=${cloud_env.enable_bedrock_endpoint}
+ENABLE_BEDROCK_PANEL=${cloud_env.enable_bedrock_panel}
+BEDROCK_REGION=${cloud_env.bedrock_region}
+BEDROCK_MODEL_ID=${cloud_env.bedrock_model_id}
+BEDROCK_MODEL_LABEL=${cloud_env.bedrock_model_label}
+BEDROCK_MAX_OUTPUT_TOKENS=${cloud_env.bedrock_max_output_tokens}
 ENVEOF
 
 docker compose -f docker-compose.aws.yml up -d --build

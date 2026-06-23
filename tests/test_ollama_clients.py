@@ -12,13 +12,14 @@ class FakeResponse:
     def __init__(self, payload, status_code=200):
         self._payload = payload
         self.status_code = status_code
+        self.text = str(payload)
 
     def raise_for_status(self):
         if self.status_code >= 400:
             raise httpx.HTTPStatusError(
                 "request failed",
                 request=httpx.Request("POST", "http://ollama.test"),
-                response=httpx.Response(self.status_code),
+                response=httpx.Response(self.status_code, text=self.text),
             )
 
     def json(self):
@@ -225,3 +226,26 @@ def test_chat_qwen_error_includes_endpoint_path_and_model(monkeypatch):
     message = str(exc_info.value)
     assert "/api/chat" in message
     assert "qwen3.6:latest" in message
+
+
+def test_chat_qwen_http_error_includes_response_body_and_logs_it(monkeypatch, caplog):
+    def fake_post(url, *, json, timeout):
+        return FakeResponse({"error": "context length exceeded"}, status_code=400)
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        qwen_module().chat_qwen(
+            "http://ollama.test",
+            "qwen3.6:latest",
+            "Answer only from retrieved internal policy chunks.",
+            "What documents are required for expense processing?",
+            temperature=0.2,
+            num_ctx=4096,
+            num_predict=512,
+        )
+
+    message = str(exc_info.value)
+    assert "HTTP 400 response body" in message
+    assert "context length exceeded" in message
+    assert "context length exceeded" in caplog.text

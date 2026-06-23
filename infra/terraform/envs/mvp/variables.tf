@@ -98,6 +98,84 @@ variable "embedding_model" {
   }
 }
 
+variable "enable_gemini_endpoint" {
+  type        = bool
+  default     = false
+  description = "Enable the optional Vertex Gemini comparison API endpoint."
+}
+
+variable "enable_gemini_panel" {
+  type        = bool
+  default     = false
+  description = "Show the optional Vertex Gemini comparison panel in Streamlit."
+}
+
+variable "google_application_credentials" {
+  type        = string
+  default     = ""
+  description = "Container path for Vertex Gemini credentials when Gemini is enabled."
+}
+
+variable "google_cloud_project" {
+  type        = string
+  default     = ""
+  description = "Google Cloud project for optional Vertex Gemini comparison."
+}
+
+variable "google_cloud_location" {
+  type        = string
+  default     = "us-central1"
+  description = "Google Cloud location for optional Vertex Gemini comparison."
+}
+
+variable "gemini_model" {
+  type        = string
+  default     = "gemini-2.5-flash"
+  description = "Vertex Gemini model for optional comparison."
+}
+
+variable "gemini_thinking_budget" {
+  type        = number
+  default     = 0
+  description = "Vertex Gemini thinking budget for optional comparison."
+}
+
+variable "enable_bedrock_endpoint" {
+  type        = bool
+  default     = false
+  description = "Enable the optional AWS Bedrock comparison API endpoint."
+}
+
+variable "enable_bedrock_panel" {
+  type        = bool
+  default     = false
+  description = "Show the optional AWS Bedrock comparison panel in Streamlit."
+}
+
+variable "bedrock_region" {
+  type        = string
+  default     = "ap-northeast-3"
+  description = "AWS Bedrock region for optional comparison."
+}
+
+variable "bedrock_model_id" {
+  type        = string
+  default     = ""
+  description = "AWS Bedrock model or inference profile id for optional comparison."
+}
+
+variable "bedrock_model_label" {
+  type        = string
+  default     = ""
+  description = "Human-readable AWS Bedrock model label for optional comparison."
+}
+
+variable "bedrock_max_output_tokens" {
+  type        = number
+  default     = 512
+  description = "Maximum output tokens for optional AWS Bedrock comparison."
+}
+
 variable "ollama_base_url" {
   type = string
 

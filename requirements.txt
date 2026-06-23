@@ -1,5 +1,6 @@
 fastapi
 google-genai
+boto3
 httpx
 kiwipiepy
 pytest

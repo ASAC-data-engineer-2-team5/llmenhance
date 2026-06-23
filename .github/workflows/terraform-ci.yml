@@ -71,6 +71,19 @@ jobs:
       TF_VAR_ollama_base_url: ${{ vars.OLLAMA_BASE_URL }}
       TF_VAR_llm_model: ${{ vars.LLM_MODEL || 'qwen2.5:7b' }}
       TF_VAR_embedding_model: ${{ vars.EMBEDDING_MODEL || 'bge-m3' }}
+      TF_VAR_enable_gemini_endpoint: ${{ vars.ENABLE_GEMINI_ENDPOINT || 'false' }}
+      TF_VAR_enable_gemini_panel: ${{ vars.ENABLE_GEMINI_PANEL || 'false' }}
+      TF_VAR_google_application_credentials: ${{ vars.GOOGLE_APPLICATION_CREDENTIALS || '' }}
+      TF_VAR_google_cloud_project: ${{ vars.GOOGLE_CLOUD_PROJECT || '' }}
+      TF_VAR_google_cloud_location: ${{ vars.GOOGLE_CLOUD_LOCATION || 'us-central1' }}
+      TF_VAR_gemini_model: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+      TF_VAR_gemini_thinking_budget: ${{ vars.GEMINI_THINKING_BUDGET || '0' }}
+      TF_VAR_enable_bedrock_endpoint: ${{ vars.ENABLE_BEDROCK_ENDPOINT || 'false' }}
+      TF_VAR_enable_bedrock_panel: ${{ vars.ENABLE_BEDROCK_PANEL || 'false' }}
+      TF_VAR_bedrock_region: ${{ vars.BEDROCK_REGION || 'ap-northeast-3' }}
+      TF_VAR_bedrock_model_id: ${{ vars.BEDROCK_MODEL_ID || '' }}
+      TF_VAR_bedrock_model_label: ${{ vars.BEDROCK_MODEL_LABEL || '' }}
+      TF_VAR_bedrock_max_output_tokens: ${{ vars.BEDROCK_MAX_OUTPUT_TOKENS || '512' }}
       TF_VAR_streamlit_allowed_cidr_blocks: ${{ vars.STREAMLIT_ALLOWED_CIDR_BLOCKS || '[]' }}
 
     steps:

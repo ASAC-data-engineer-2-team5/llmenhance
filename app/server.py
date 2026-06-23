@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import is_dataclass, replace
 from pathlib import Path
 from time import perf_counter
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -11,6 +13,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.bedrock_client import has_bedrock_credentials
+from app.bedrock_rag_pipeline import answer_question_with_bedrock
 from app.config import Settings
 from app.gemini_pipeline import answer_question_with_gemini
 from app.rag_pipeline import answer_question
@@ -28,6 +32,8 @@ _HEALTH_TIMEOUT_SECONDS = 5.0
 _DEFAULT_GEMINI_LOCATION = "us-central1"
 _DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 _DEFAULT_GEMINI_THINKING_BUDGET = 0
+_DEFAULT_BEDROCK_REGION = "ap-northeast-3"
+_SUPPORTED_OLLAMA_MODELS = ("qwen2.5:7b", "qwen3:4b-instruct", "exaone3.5:7.8b")
 _CONVENIENCE_FILTER_FIELDS = (
     "source_path",
     "document_id",
@@ -57,8 +63,20 @@ def _gemini_endpoint_enabled() -> bool:
     return _env_flag("ENABLE_GEMINI_ENDPOINT", default=False)
 
 
+def _bedrock_endpoint_enabled() -> bool:
+    return _env_flag("ENABLE_BEDROCK_ENDPOINT", default=False)
+
+
 class AskRequest(BaseModel):
     question: str
+    llm_model: str | None = None
+    gemini_project: str | None = None
+    gemini_location: str | None = None
+    gemini_model: str | None = None
+    gemini_thinking_budget: int | None = None
+    bedrock_region: str | None = None
+    bedrock_model_id: str | None = None
+    bedrock_max_output_tokens: int | None = None
     top_k: int | None = None
     metadata_filter: dict[str, Any] | None = None
     source_path: str | None = None
@@ -93,6 +111,7 @@ class HealthResponse(BaseModel):
     ollama: ServiceStatus
     qdrant: ServiceStatus
     gemini: ServiceStatus
+    bedrock: ServiceStatus
 
 
 @app.get("/health", response_model=ServiceStatus)
@@ -108,12 +127,13 @@ def health_services() -> HealthResponse:
         ollama=_check_ollama(settings.ollama_base_url, settings.llm_model),
         qdrant=_check_qdrant(settings.qdrant_url),
         gemini=_check_gemini(),
+        bedrock=_check_bedrock(),
     )
 
 
 @app.post("/api/ask/qwen", response_model=AskResponse)
 def ask_qwen(req: AskRequest) -> AskResponse:
-    settings = Settings.from_env()
+    settings = _settings_for_requested_ollama_model(Settings.from_env(), req.llm_model)
     started = perf_counter()
     try:
         result = answer_question(
@@ -136,7 +156,7 @@ def ask_gemini(req: AskRequest) -> AskResponse:
         raise HTTPException(status_code=404, detail="Gemini endpoint is disabled.")
 
     settings = Settings.from_env()
-    project = _gemini_project()
+    project = _first_text(req.gemini_project, _gemini_project())
     if not project:
         raise HTTPException(
             status_code=503,
@@ -150,10 +170,51 @@ def ask_gemini(req: AskRequest) -> AskResponse:
             _resolve_top_k(req, settings),
             metadata_filter=_build_metadata_filter(req),
             project=project,
-            location=os.getenv("GOOGLE_CLOUD_LOCATION", _DEFAULT_GEMINI_LOCATION),
-            model=os.getenv("GEMINI_MODEL", _DEFAULT_GEMINI_MODEL),
+            location=_first_text(
+                req.gemini_location, os.getenv("GOOGLE_CLOUD_LOCATION"), _DEFAULT_GEMINI_LOCATION
+            ),
+            model=_first_text(req.gemini_model, os.getenv("GEMINI_MODEL"), _DEFAULT_GEMINI_MODEL),
             max_output_tokens=settings.num_predict,
-            thinking_budget=_gemini_thinking_budget(),
+            thinking_budget=(
+                req.gemini_thinking_budget
+                if req.gemini_thinking_budget is not None
+                else _gemini_thinking_budget()
+            ),
+            settings=settings,
+            progress=None,
+            timing=None,
+        )
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return _ask_response(result, started)
+
+
+@app.post("/api/ask/bedrock", response_model=AskResponse)
+def ask_bedrock(req: AskRequest) -> AskResponse:
+    if not _bedrock_endpoint_enabled():
+        raise HTTPException(status_code=404, detail="Bedrock endpoint is disabled.")
+
+    settings = Settings.from_env()
+    model_id = _first_text(req.bedrock_model_id, os.getenv("BEDROCK_MODEL_ID"))
+    if not model_id:
+        raise HTTPException(status_code=503, detail="BEDROCK_MODEL_ID is required for Bedrock.")
+
+    started = perf_counter()
+    try:
+        result = answer_question_with_bedrock(
+            req.question,
+            _resolve_top_k(req, settings),
+            metadata_filter=_build_metadata_filter(req),
+            region=_first_text(
+                req.bedrock_region,
+                os.getenv("BEDROCK_REGION"),
+                _DEFAULT_BEDROCK_REGION,
+            ),
+            model_id=model_id,
+            max_output_tokens=_resolve_bedrock_max_output_tokens(req, settings),
             settings=settings,
             progress=None,
             timing=None,
@@ -176,6 +237,48 @@ def _ask_response(result: dict[str, Any], started: float) -> AskResponse:
 
 def _resolve_top_k(req: AskRequest, settings: Settings) -> int:
     return settings.retrieval_top_k if req.top_k is None else req.top_k
+
+
+def _resolve_bedrock_max_output_tokens(req: AskRequest, settings: Settings) -> int:
+    if req.bedrock_max_output_tokens is not None:
+        return req.bedrock_max_output_tokens
+    raw_value = os.getenv("BEDROCK_MAX_OUTPUT_TOKENS")
+    if raw_value is None or raw_value.strip() == "":
+        return settings.num_predict
+    try:
+        return int(raw_value)
+    except ValueError as exc:
+        raise ValueError(
+            f"BEDROCK_MAX_OUTPUT_TOKENS must be an integer, got {raw_value!r}"
+        ) from exc
+
+
+def _settings_for_requested_ollama_model(
+    settings: Settings, requested_model: str | None
+) -> Settings:
+    model = requested_model.strip() if requested_model else ""
+    if not model:
+        return settings
+
+    if model not in _SUPPORTED_OLLAMA_MODELS:
+        supported = ", ".join(_SUPPORTED_OLLAMA_MODELS)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported Ollama model {model!r}. Supported models: {supported}.",
+        )
+
+    if model == settings.llm_model:
+        return settings
+
+    if is_dataclass(settings):
+        return replace(settings, llm_model=model)
+
+    values = vars(settings).copy()
+    values["llm_model"] = model
+    try:
+        return type(settings)(**values)
+    except TypeError:
+        return SimpleNamespace(**values)
 
 
 def _build_metadata_filter(req: AskRequest) -> dict[str, str] | None:
@@ -276,18 +379,53 @@ def _credential_file_status(credential_path: str) -> ServiceStatus | None:
     except Exception as exc:
         return ServiceStatus(status="warning", detail=f"Credential file is not valid JSON: {exc}")
 
-    required_fields = ("type", "project_id", "client_email", "private_key")
-    if any(not data.get(field) for field in required_fields):
+    credential_type = data.get("type")
+    if credential_type == "service_account":
+        required_fields = ("project_id", "client_email", "private_key")
+        if any(not data.get(field) for field in required_fields):
+            return ServiceStatus(
+                status="warning",
+                detail="Service account credential file is missing required fields.",
+            )
+        return None
+    if credential_type == "authorized_user":
+        required_fields = ("client_id", "client_secret", "refresh_token")
+        if any(not data.get(field) for field in required_fields):
+            return ServiceStatus(
+                status="warning",
+                detail="Authorized user credential file is missing required fields.",
+            )
+        return None
+    if credential_type == "external_account":
+        return None
+
+    if credential_type:
         return ServiceStatus(
             status="warning",
-            detail="Credential file is present but does not look like a service account key.",
+            detail=f"Credential file type {credential_type!r} is not supported.",
         )
-    if data.get("type") != "service_account":
-        return ServiceStatus(
-            status="warning",
-            detail="Credential file is present but is not a service account key.",
-        )
-    return None
+    return ServiceStatus(
+        status="warning",
+        detail="Credential file is present but does not include a credential type.",
+    )
+
+
+def _check_bedrock() -> ServiceStatus:
+    if not _bedrock_endpoint_enabled():
+        return ServiceStatus(status="ok", detail="Bedrock endpoint disabled.")
+
+    region = os.getenv("BEDROCK_REGION", _DEFAULT_BEDROCK_REGION)
+    model_id = os.getenv("BEDROCK_MODEL_ID", "").strip()
+    if not model_id:
+        return ServiceStatus(status="warning", detail="BEDROCK_MODEL_ID is not configured.")
+
+    try:
+        if has_bedrock_credentials():
+            return ServiceStatus(status="ok", detail=f"Region {region!r}, model {model_id!r}.")
+    except Exception as exc:
+        return ServiceStatus(status="warning", detail=f"Bedrock credential check failed: {exc}")
+
+    return ServiceStatus(status="warning", detail="AWS credentials were not found.")
 
 
 def _gemini_project() -> str:
@@ -300,3 +438,17 @@ def _gemini_thinking_budget() -> int:
         return int(raw_value)
     except ValueError as exc:
         raise ValueError(f"GEMINI_THINKING_BUDGET must be an integer, got {raw_value!r}") from exc
+
+
+def _first_text(*values: str | None) -> str:
+    for value in values:
+        if value is not None and value.strip():
+            return value.strip()
+    return ""
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}

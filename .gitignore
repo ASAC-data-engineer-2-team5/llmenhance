@@ -71,3 +71,6 @@ infra/terraform/**/*.tfstate.*
 infra/terraform/**/terraform.tfvars
 infra/terraform/**/backend.hcl
 infra/terraform/**/tfplan
+
+# Local brainstorming sessions
+.superpowers/

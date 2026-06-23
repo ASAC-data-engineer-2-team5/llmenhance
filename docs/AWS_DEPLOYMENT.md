@@ -28,14 +28,14 @@ Tester workstation
 
 ## Current MVP Deployment
 
-Status as of 2026-06-22:
+Status as of 2026-06-23:
 
 - Active app region: Osaka (`ap-northeast-3`).
-- Active app EC2: `i-034ad87172a388195`.
+- Active app EC2: `i-0b374e8cfaf830e64`.
 - Active Streamlit demo URL: `http://15.168.242.105:8501`.
 - Active app Terraform backend: `s3://llmenhance-mvp-tfstate-f2607d88/llmenhance/mvp-osaka/terraform.tfstate`.
-- Model server endpoint: `http://16.208.81.115:11434`.
-- Model server security group `sg-070ff2b14da37516a` allows the Osaka app EIP `15.168.242.105/32` for TCP `11434`.
+- Model server endpoint: `http://172.31.24.212:11434`.
+- Model server security group `sg-0f6c907562392c866` allows the app security group for TCP `11434`.
 
 ## First Deploy
 
@@ -53,9 +53,11 @@ The AWS MVP deployment uses the Qwen-only Streamlit surface by default:
 ```env
 ENABLE_GEMINI_PANEL=false
 ENABLE_GEMINI_ENDPOINT=false
+ENABLE_BEDROCK_PANEL=false
+ENABLE_BEDROCK_ENDPOINT=false
 ```
 
-The Gemini comparison panel is allowed only for internal benchmark sessions.
+The Gemini and Bedrock comparison panels are allowed only for controlled internal benchmark sessions.
 
 ## CI/CD
 
@@ -81,6 +83,19 @@ TF_STATE_BUCKET=<terraform-state-bucket>
 OLLAMA_BASE_URL=http://<model-server-private-ip>:11434
 LLM_MODEL=qwen2.5:7b
 EMBEDDING_MODEL=bge-m3
+ENABLE_GEMINI_ENDPOINT=false
+ENABLE_GEMINI_PANEL=false
+GOOGLE_APPLICATION_CREDENTIALS=
+GOOGLE_CLOUD_PROJECT=
+GOOGLE_CLOUD_LOCATION=us-central1
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_THINKING_BUDGET=0
+ENABLE_BEDROCK_ENDPOINT=false
+ENABLE_BEDROCK_PANEL=false
+BEDROCK_REGION=ap-northeast-3
+BEDROCK_MODEL_ID=
+BEDROCK_MODEL_LABEL=
+BEDROCK_MAX_OUTPUT_TOKENS=512
 STREAMLIT_ALLOWED_CIDR_BLOCKS=["0.0.0.0/0"]
 ```
 

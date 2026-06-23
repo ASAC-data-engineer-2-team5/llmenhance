@@ -70,6 +70,25 @@ resource "aws_iam_role_policy_attachment" "cloudwatch" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
+resource "aws_iam_role_policy" "bedrock_invoke" {
+  count = var.enable_bedrock_endpoint ? 1 : 0
+
+  name = "${var.project_name}-${var.environment}-bedrock-invoke"
+  role = aws_iam_role.app.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_iam_instance_profile" "app" {
   name = "${var.project_name}-${var.environment}-app-profile"
   role = aws_iam_role.app.name
@@ -127,8 +146,23 @@ resource "aws_instance" "app" {
     ollama_base_url = var.ollama_base_url
     llm_model       = var.llm_model
     embedding_model = var.embedding_model
+    cloud_env = {
+      enable_gemini_endpoint         = var.enable_gemini_endpoint
+      enable_gemini_panel            = var.enable_gemini_panel
+      google_application_credentials = var.google_application_credentials
+      google_cloud_project           = var.google_cloud_project
+      google_cloud_location          = var.google_cloud_location
+      gemini_model                   = var.gemini_model
+      gemini_thinking_budget         = var.gemini_thinking_budget
+      enable_bedrock_endpoint        = var.enable_bedrock_endpoint
+      enable_bedrock_panel           = var.enable_bedrock_panel
+      bedrock_region                 = var.bedrock_region
+      bedrock_model_id               = var.bedrock_model_id
+      bedrock_model_label            = var.bedrock_model_label
+      bedrock_max_output_tokens      = var.bedrock_max_output_tokens
+    }
   })
-  user_data_replace_on_change = true
+  user_data_replace_on_change = false
 
   root_block_device {
     volume_size           = var.root_volume_gb

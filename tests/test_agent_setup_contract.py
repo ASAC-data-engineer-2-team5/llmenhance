@@ -160,6 +160,25 @@ def test_mvp_terraform_backend_has_placeholder_bucket_for_validation() -> None:
     assert 'bucket       = "llmenhance-mvp-tfstate-placeholder"' in backend
 
 
+def test_aws_deployment_keeps_cloud_models_opt_in() -> None:
+    aws_env = read_repo_file(".env.aws-ec2.example")
+    user_data = read_repo_file("infra/terraform/envs/mvp/user_data_app.sh.tftpl")
+    variables = read_repo_file("infra/terraform/envs/mvp/variables.tf")
+    workflow = read_repo_file(".github/workflows/deploy-mvp.yml")
+
+    for text in (aws_env, user_data, workflow):
+        assert "ENABLE_GEMINI_ENDPOINT" in text
+        assert "ENABLE_GEMINI_PANEL" in text
+        assert "ENABLE_BEDROCK_ENDPOINT" in text
+        assert "ENABLE_BEDROCK_PANEL" in text
+
+    assert "ENABLE_GEMINI_ENDPOINT=false" in aws_env
+    assert "ENABLE_BEDROCK_ENDPOINT=false" in aws_env
+    assert 'variable "enable_gemini_endpoint"' in variables
+    assert 'variable "enable_bedrock_endpoint"' in variables
+    assert 'default     = false' in variables
+
+
 def test_team_environment_doc_exists_and_mentions_security_group() -> None:
     doc = read_repo_file("docs/TEAM_ENVIRONMENT.md")
 
